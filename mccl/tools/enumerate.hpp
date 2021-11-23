@@ -308,6 +308,27 @@ public:
         }
     }
     
+    template<typename T, typename F, size_t p, size_t i=0>
+    void enumerate_p(const T* begin, const T* end, F&& f, T acc, size_t cur_idx)
+    {
+        size_t count = end-begin;
+        if (count < p-i)
+            return;
+        idx[i] = cur_idx;
+        for(auto it = begin; it != end; ++it, ++idx[i])
+        {
+            if constexpr(i == p-1)
+            {
+                if (!call_function(f, idx+0, idx+p, *it ^ acc))
+                    return;
+            }
+            else
+            {
+                enumerate_p<T, F, p, i+1>(it + 1, end, std::forward<F>(f), *it ^ acc, idx[i]+1);
+            }
+        }
+    }
+
     template<typename T, typename F>
     void enumerate(const T* begin, const T* end, size_t p, F&& f)
     {
@@ -315,17 +336,16 @@ public:
         {
             default: throw std::runtime_error("enumerate::enumerate: only 1 <= p <= 4 supported");
             case 4:
-                enumerate4(begin,end,f);
+                enumerate_p<T, F, 4>(begin,end,std::forward<F>(f), 0, 0);
                 __attribute__ ((fallthrough));
             case 3:
-                enumerate3(begin,end,f);
+                enumerate_p<T, F, 3>(begin,end,std::forward<F>(f), 0, 0);
                 __attribute__ ((fallthrough));
             case 2:
-                enumerate12(begin,end,f);
-                return;
+                enumerate_p<T, F, 2>(begin,end,std::forward<F>(f), 0, 0);
+                __attribute__ ((fallthrough));
             case 1:
-                enumerate1(begin,end,f);
-                return;
+                enumerate_p<T, F, 1>(begin,end,std::forward<F>(f), 0, 0);
         }
     }
 
