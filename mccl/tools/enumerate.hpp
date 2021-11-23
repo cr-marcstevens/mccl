@@ -158,7 +158,7 @@ public:
             }
             else
             {
-                enumerate_p_val<T, F, p-1>(begin+1, end, std::forward<F>(f), *it ^ acc);
+                enumerate_p_val<T, F, p-1>(it + 1, end, std::forward<F>(f), *it ^ acc);
             }
         }
     }
