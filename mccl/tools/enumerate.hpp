@@ -98,7 +98,7 @@ public:
             }
         }
     }
-    
+
     template<typename T, typename F>
     void enumerate4_val(const T* begin, const T* end, F&& f)
     {
@@ -142,7 +142,27 @@ public:
             }
         }
     }
-    
+
+    template<typename T, typename F, size_t p>
+    void enumerate_p_val(const T* begin, const T* end, F&& f, T acc)
+    {
+        size_t count = end-begin;
+        if (count < p)
+            return;
+        for(auto it = begin; it != end; ++it)
+        {
+            if constexpr(p == 1)
+            {
+                if (!call_function(f,*it ^ acc))
+                    return;
+            }
+            else
+            {
+                enumerate_p_val<T, F, p-1>(begin+1, end, std::forward<F>(f), *it ^ acc);
+            }
+        }
+    }
+
     template<typename T, typename F>
     void enumerate_val(const T* begin, const T* end, size_t p, F&& f)
     {
@@ -150,19 +170,18 @@ public:
         {
             default: throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 4 supported");
             case 4:
-                enumerate4_val(begin,end,f);
+                enumerate_p_val<T, F, 4>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 3:
-                enumerate3_val(begin,end,f);
+                enumerate_p_val<T, F, 3>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 2:
-                enumerate12_val(begin,end,f);
-                return;
+                enumerate_p_val<T, F, 2>(begin,end,std::forward<F>(f), 0);
+                __attribute__ ((fallthrough));
             case 1:
-                enumerate1_val(begin,end,f);
+                enumerate_p_val<T, F, 1>(begin,end,std::forward<F>(f), 0);
         }
     }
-
 
     template<typename T, typename F>
     void enumerate1(const T* begin, const T* end, F&& f)
