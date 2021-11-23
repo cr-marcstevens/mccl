@@ -50,9 +50,9 @@ libmccl_la_SOURCES=\
 bin_isdsolver_SOURCES= src/isdsolver.cpp
 bin_isdsolver_LDADD  = libmccl.la
 
-TESTS=          tests/test_compile tests/test_unordered_multimap tests/test_matrix tests/test_parser tests/test_prange tests/test_dumer
+TESTS=          tests/test_compile tests/test_unordered_multimap tests/test_matrix tests/test_parser tests/test_prange tests/test_dumer tests/test_enumerate
 
-check_PROGRAMS= tests/test_compile tests/test_unordered_multimap tests/test_matrix tests/test_parser tests/test_prange tests/test_dumer
+check_PROGRAMS= tests/test_compile tests/test_unordered_multimap tests/test_matrix tests/test_parser tests/test_prange tests/test_dumer tests/test_enumerate
 
 tests_test_compile_SOURCES= tests/test_compile.cpp
 tests_test_compile_LDADD  = libmccl.la
@@ -72,6 +72,8 @@ tests_test_prange_LDADD  = libmccl.la
 tests_test_dumer_SOURCES= tests/test_dumer.cpp
 tests_test_dumer_LDADD  = libmccl.la
 
+tests_test_enumerate_SOURCES= tests/test_enumerate.cpp
+tests_test_enumerate_LDADD  = libmccl.la
 
 if HAVE_M4RI
 
