@@ -42,6 +42,7 @@ int main(int argc, char** argv)
       enumerate_t<uint32_t> enumerate;
       size_t k= 256;
       size_t p = 4;
+      size_t trials = 10;
 
       std::cerr << "Run enumerate with options k=" << k << ", p=" << p << std::endl;
 
@@ -52,17 +53,24 @@ int main(int argc, char** argv)
       for(size_t i=0; i < k; i++)
         words[i] = mt();
 
-      auto start0 = bench_clock_t::now();
       uint64_t sm = 0;
-      enumerate.enumerate_val(words.data(), words.data()+k, p,
-          [&sm](uint64_t val)
+      auto f = [&sm](uint64_t val)
           {
               sm += val;
               return true;
-          });
+          };
+
+      // warmup
+      enumerate.enumerate_val(words.data(), words.data()+k, p, f);    
+
+      // test 
+      auto start0 = bench_clock_t::now();
+      for(size_t t=0; t<trials;++t)
+        enumerate.enumerate_val(words.data(), words.data()+k, p, f);
       auto end0 = bench_clock_t::now();
-      std::cerr << sm << std::endl;
       double ms0 = std::chrono::duration_cast<std::chrono::milliseconds>(end0-start0).count();
+      if(sm==1)
+        std::cerr << "Please don't optimize me away!!" << std::endl;
       std::cerr << "Time: " << ms0 << std::endl;
     } else {
       // run tests
