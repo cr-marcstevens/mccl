@@ -5,14 +5,22 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
+  
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        compiler: [ g++, clang++ ]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    env:
+      CXX: ${{ matrix.compiler }}
     steps:
     - uses: actions/checkout@v2
+    - name: Install dependencies (macos)
+      run: brew install automake gmp
+      if: matrix.os == 'macos-latest'
     - name: Prepare
       run: autoreconf --install
     - name: configure
