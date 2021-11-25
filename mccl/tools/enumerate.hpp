@@ -353,7 +353,7 @@ public:
 };
 
 template<typename T, typename F>
-T** precompute(const T* begin, const T* end) {
+T[][2] precompute(const T* begin, const T* end) {
 
     auto precomputed = new T [end - begin][2];
     for(auto it = begin; it != end-1; ++it) {
