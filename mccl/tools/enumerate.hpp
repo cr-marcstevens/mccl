@@ -353,8 +353,9 @@ public:
 };
 
 template<typename T, typename F>
-std::vector<std::vector<T>> precompute(const T* begin, const T* end) {
-    std::vector<std::vector<T>> precomputed(2, std::vector<T> (end - begin));
+T** precompute(const T* begin, const T* end) {
+
+    auto precomputed = new T [2][end - begin];
     for(auto it = begin; it != end-1; ++it) {
         precomputed[0][it - begin] = *it ^ *(it+1);
     }
@@ -399,7 +400,7 @@ public:
     template<typename T, typename F, size_t p>
     void enumerate_p_val(const T* begin, const T* end, F&& f)
     {
-        std::vector<std::vector<T>> precomputed = precompute<T, F>(begin, end);
+        auto precomputed = precompute<T, F>(begin, end);
         index_type z[16];
 
         index_type diff_pos = 0;
@@ -480,6 +481,7 @@ public:
             }
         }
     }
+
     template<typename T, typename F>
     void enumerate_val(const T* begin, const T* end, size_t p, F&& f)
     {
