@@ -352,6 +352,156 @@ public:
     index_type idx[16];
 };
 
+template<typename T, typename F>
+std::vector<std::vector<T>> precompute(const T* begin, const T* end) {
+    std::vector<std::vector<T>> precomputed(2, std::vector<T> (end - begin));
+    for(auto it = begin; it != end-1; ++it) {
+        precomputed[0][it - begin] = *it ^ *(it+1);
+    }
+    for(auto it = begin; it != end-2; ++it) {
+        precomputed[1][it - begin] = *it ^ *(it+2);
+    }
+    return precomputed;
+}
+
+template<typename Idx = uint16_t>
+class chase_t
+{
+public:
+    typedef Idx index_type;
+
+    // if return type of f is void always return true (continue enumeration)
+    template<typename F, typename... Args>
+    inline auto call_function(F&& f, Args&&... args)
+        -> typename std::enable_if<std::is_same<void, decltype(f(std::forward<Args>(args)...))>::value, bool>::type
+    {
+        f(std::forward<Args>(args)...);
+        return true;
+    }
+
+    // if return type of f is bool return output of f (true to continue enumeration, false to stop)
+    template<typename F, typename... Args>
+    inline auto call_function(F&& f, Args&&... args)
+        -> typename std::enable_if<std::is_same<bool, decltype(f(std::forward<Args>(args)...))>::value, bool>::type
+    {
+        return f(std::forward<Args>(args)...);
+    }
+
+    /*
+     * List all combinations of 't' elements of a set of 'n' elements.
+     *
+     * Generate a Chase's sequence: the binary representation of a combination and
+     * its successor only differ by two bits that are either consecutive of
+     * separated by only one position.
+     *
+     * See exercise 45 of Knuth's The art of computer programming volume 4A.
+     */
+    template<typename T, typename F, size_t p>
+    void enumerate_p_val(const T* begin, const T* end, F&& f)
+    {
+        std::vector<std::vector<T>> precomputed = precompute<T, F>(begin, end);
+        index_type z[16];
+
+        index_type diff_pos = 0;
+        index_type diff_len = 0;
+        int32_t x;
+        for (size_t j = 1; j <= p + 1; ++j) {
+            z[j] = 0;
+        }
+        auto val = 0;
+        for (size_t j = 1; j <= p + 1; ++j) {
+            val ^= *(end - p - 1 + j);
+            // idx[j] = n - p - 1 + j;
+        }
+        if (!call_function(f, val))
+            return;
+        /* r is the least subscript with idx[r] >= r. */
+        size_t r = 1;
+        size_t j;
+
+        goto novisit;
+        while (1) {
+            // for (size_t i = 1; i <= p; ++i) {
+            //     combinations[i - 1 + N * p] = idx[i];
+            // }
+            val ^= precomputed[diff_len - 1][diff_pos];
+            if (!call_function(f, val))
+                return;
+            j = r;
+
+        novisit:
+            if (z[j]) {
+                x = idx[j] + 2;
+                if (x < z[j]) {
+                    diff_pos = idx[j];
+                    diff_len = 2;
+                    idx[j] = x;
+                } else if (x == z[j] && z[j + 1]) {
+                    diff_pos = idx[j];
+                    diff_len = 2 - (idx[j + 1] % 2);
+                    idx[j] = x - (idx[j + 1] % 2);
+                } else {
+                    z[j] = 0;
+                    ++j;
+                    if (j <= p)
+                        goto novisit;
+                    else
+                        return;
+                }
+                if (idx[1] > 0)
+                    r = 1;
+                else
+                    r = j - 1;
+            } else {
+                x = idx[j] + (idx[j] % 2) - 2;
+                if (x >= (int32_t)j) {
+                    diff_pos = x;
+                    diff_len = 2 - (idx[j] % 2);
+                    idx[j] = x;
+                    r = 1;
+                } else if (idx[j] == j) {
+                    diff_pos = j - 1;
+                    diff_len = 1;
+                    idx[j] = j - 1;
+                    z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
+                    r = j;
+                } else if (idx[j] < j) {
+                    diff_pos = idx[j];
+                    diff_len = j - idx[j];
+                    idx[j] = j;
+                    z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
+                    r = (j > 2) ? j - 1 : 1;
+                } else {
+                    diff_pos = x;
+                    diff_len = 2 - (idx[j] % 2);
+                    idx[j] = x;
+                    r = j;
+                }
+            }
+        }
+    }
+    template<typename T, typename F>
+    void enumerate_val(const T* begin, const T* end, size_t p, F&& f)
+    {
+        switch (p) {
+        default:
+            throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 4 supported");
+        case 4:
+            enumerate_p_val<T, F, 4>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 3:
+            enumerate_p_val<T, F, 3>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 2:
+            enumerate_p_val<T, F, 2>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 1:
+            enumerate_p_val<T, F, 1>(begin, end, std::forward<F>(f));
+        }
+    }
+
+    index_type idx[16];
+};
 MCCL_END_NAMESPACE
 
 #endif
