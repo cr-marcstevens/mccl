@@ -411,13 +411,13 @@ public:
         auto val = 0;
         for (size_t j = 1; j <= p + 1; ++j) {
             val ^= *(end - p - 1 + j);
-            // idx[j] = n - p - 1 + j;
+            idx[j] = end - begin - p - 1 + j;
         }
         if (!call_function(f, val))
             return;
         /* r is the least subscript with idx[r] >= r. */
         size_t r = 1;
-        size_t j;
+        size_t j = r;
 
         goto novisit;
         while (1) {
