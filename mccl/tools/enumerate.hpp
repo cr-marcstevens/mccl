@@ -353,14 +353,17 @@ public:
 };
 
 template<typename T, typename F>
-T[][2] precompute(const T* begin, const T* end) {
+T** precompute(const T* begin, const T* end) {
 
-    auto precomputed = new T [end - begin][2];
+    T** precomputed = new T*[2];
+    for(int i = 0; i < 2; ++i) {
+        precomputed[i] = new T[end - begin];
+    }
     for(auto it = begin; it != end-1; ++it) {
-        precomputed[it - begin][0] = *it ^ *(it+1);
+        precomputed[0][it - begin] = *it ^ *(it+1);
     }
     for(auto it = begin; it != end-2; ++it) {
-        precomputed[it - begin][1] = *it ^ *(it+2);
+        precomputed[1][it - begin] = *it ^ *(it+2);
     }
     return precomputed;
 }
@@ -400,7 +403,7 @@ public:
     template<typename T, typename F, size_t p>
     void enumerate_p_val(const T* begin, const T* end, F&& f)
     {
-        auto precomputed = precompute<T, F>(begin, end);
+        auto precomputed = precompute<T,F>(begin, end);
         index_type z[16];
 
         index_type diff_pos = 0;
@@ -425,7 +428,7 @@ public:
             // for (size_t i = 1; i <= p; ++i) {
             //     combinations[i - 1 + N * p] = idx[i];
             // }
-            val ^= precomputed[diff_pos][diff_len - 1];
+            val ^= precomputed[diff_len - 1][diff_pos];
             if (!call_function(f, val))
                 return;
             j = r;
@@ -481,7 +484,7 @@ public:
             }
         }
 
-	for(auto i = 0; i < begin - end; ++i)
+	for(auto i = 0; i < 2; ++i)
 	    delete[] precomputed[i];   
 	
 	delete[] precomputed;
