@@ -411,11 +411,11 @@ public:
         int32_t x;
         for (size_t j = 1; j <= p + 1; ++j) {
             z[j] = 0;
+            idx[j] = end - begin - p - 1 + j;
         }
         auto val = 0;
-        for (size_t j = 1; j <= p + 1; ++j) {
+        for (size_t j = 1; j < p + 1; ++j) {
             val ^= *(end - p - 1 + j);
-            idx[j] = end - begin - p - 1 + j;
         }
         if (!call_function(f, val))
             return;
