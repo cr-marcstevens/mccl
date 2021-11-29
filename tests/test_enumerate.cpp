@@ -13,6 +13,7 @@
 #include <random>
 #include <chrono>
 #include <typeinfo>
+#include <cassert>
 
 using namespace mccl;
 namespace po = program_options;
@@ -20,8 +21,9 @@ namespace po = program_options;
 typedef std::conditional<std::chrono::high_resolution_clock::is_steady, std::chrono::high_resolution_clock, std::chrono::steady_clock>::type bench_clock_t;
 
 template<typename Enumerate>
-int test_enumerate_val(size_t k = 256, size_t p_up_to = 4)
+int test_enumerate_val(size_t k = 64, size_t p_up_to = 4)
 {
+    assert(k<=64); // test only works for k<=64
     int status = 0;
     
     std::vector<uint64_t> firstwords(k, 0);
@@ -62,8 +64,9 @@ int test_enumerate_val(size_t k = 256, size_t p_up_to = 4)
 }
 
 template<typename Enumerate>
-int test_enumerate_idx(size_t k = 256, size_t p_up_to = 4)
+int test_enumerate_idx(size_t k = 64, size_t p_up_to = 4)
 {
+    assert(k<=64); // test only works for k<=64
     int status = 0;
     
     std::vector<uint64_t> firstwords(k, 0);
