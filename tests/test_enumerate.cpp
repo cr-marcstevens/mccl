@@ -56,6 +56,8 @@ int test_enumerate_val(size_t k = 256, size_t p_up_to = 4)
 
         status |= (expected_sums!=vals.size());
     }
+    if (status)
+      std::cerr << "Failed!" << std::endl;
     return status;
 }
 
@@ -81,7 +83,7 @@ int test_enumerate_idx(size_t k = 256, size_t p_up_to = 4)
               size_t w = (size_t)__builtin_popcountll(val);
               status |= (w > p);
               vals.insert(val);
-              if(w<=p)
+              if (w<=p)
                 weights[w]++;
 
               // indices check
@@ -96,8 +98,11 @@ int test_enumerate_idx(size_t k = 256, size_t p_up_to = 4)
               {
                 uint32_t ind = *(begin+i);
                 indices_set.insert(ind);
-                if(!(val&(((uint64_t) 1)<<ind)))
+                if (!(val&(((uint64_t) 1)<<ind)))
+                {
+                  std::cerr << "Err2" << std::endl;
                   status |= 1;
+                }
               }
               status |= (indices_set.size()!=indices);
 
@@ -114,7 +119,8 @@ int test_enumerate_idx(size_t k = 256, size_t p_up_to = 4)
 
         status |= (expected_sums!=vals.size());
     }
-
+    if (status)
+      std::cerr << "Failed!" << std::endl;
     return status;
 }
 
@@ -188,7 +194,7 @@ int main(int argc, char** argv)
 
     // run tests
     int status = 0;
-    size_t k = 40, p_up_to = 4;
+    size_t k = 20, p_up_to = 4;
 
     std::cout << "Testing enumerate_t<uint32_t>" << std::endl;
     status |= test_enumerate_val< enumerate_t<uint32_t> >(k, p_up_to);
