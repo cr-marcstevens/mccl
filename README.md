@@ -7,14 +7,13 @@ Modular Code Cryptanalysis Library
 # Documentation
 
 Please review documentation and help improve it!
+We're also looking for tutorials by and for people that are new to the project.
 
 https://github.com/cr-marcstevens/mccl/tree/main/doc
 
-# Core API
+# Workshops
 
-I've made first steps on the matrix API:
-
-https://github.com/cr-marcstevens/mccl/blob/main/mccl/core/matrix.hpp
+See https://github.com/cr-marcstevens/mccl-wiki
 
 # Repository structure
 
@@ -33,9 +32,11 @@ https://github.com/cr-marcstevens/mccl/blob/main/mccl/core/matrix.hpp
   - `update_contrib.sh`: update contrib files
 - `m4`, `configure.ac`, `Makefile.am`: autotools build system files
 
-# Building
+# Getting started
 
 ```
+git clone git@github.com:cr-marcstevens/mccl.git mccl
+cd mccl
 autoreconf --install
 ./configure
 make
