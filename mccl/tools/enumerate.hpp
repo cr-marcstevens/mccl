@@ -417,71 +417,66 @@ public:
         for (size_t j = 1; j < p + 1; ++j) {
             val ^= *(end - p - 1 + j);
         }
-        if (!call_function(f, val))
-            return;
-        /* r is the least subscript with idx[r] >= r. */
-        size_t r = 1;
-        size_t j = r;
+        if (call_function(f, val)) {
+            /* r is the least subscript with idx[r] >= r. */
+            size_t r = 1;
+            size_t j = r;
 
-        goto novisit;
-        while (1) {
-            // for (size_t i = 1; i <= p; ++i) {
-            //     combinations[i - 1 + N * p] = idx[i];
-            // }
-            val ^= precomputed[diff_len - 1][diff_pos];
-            if (!call_function(f, val))
-                return;
-            j = r;
-
-        novisit:
-            if (z[j]) {
-                x = idx[j] + 2;
-                if (x < z[j]) {
-                    diff_pos = idx[j];
-                    diff_len = 2;
-                    idx[j] = x;
-                } else if (x == z[j] && z[j + 1]) {
-                    diff_pos = idx[j];
-                    diff_len = 2 - (idx[j + 1] % 2);
-                    idx[j] = x - (idx[j + 1] % 2);
-                } else {
-                    z[j] = 0;
-                    ++j;
-                    if (j <= p)
-                        goto novisit;
+            do {
+                if (z[j]) {
+                    x = idx[j] + 2;
+                    if (x < z[j]) {
+                        diff_pos = idx[j];
+                        diff_len = 2;
+                        idx[j] = x;
+                    } else if (x == z[j] && z[j + 1]) {
+                        diff_pos = idx[j];
+                        diff_len = 2 - (idx[j + 1] % 2);
+                        idx[j] = x - (idx[j + 1] % 2);
+                    } else {
+                        z[j] = 0;
+                        ++j;
+                        if (j <= p)
+                            continue;
+                        else
+                            break;
+                    }
+                    if (idx[1] > 0)
+                        r = 1;
                     else
-                        return;
-                }
-                if (idx[1] > 0)
-                    r = 1;
-                else
-                    r = j - 1;
-            } else {
-                x = idx[j] + (idx[j] % 2) - 2;
-                if (x >= (int32_t)j) {
-                    diff_pos = x;
-                    diff_len = 2 - (idx[j] % 2);
-                    idx[j] = x;
-                    r = 1;
-                } else if (idx[j] == j) {
-                    diff_pos = j - 1;
-                    diff_len = 1;
-                    idx[j] = j - 1;
-                    z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
-                    r = j;
-                } else if (idx[j] < j) {
-                    diff_pos = idx[j];
-                    diff_len = j - idx[j];
-                    idx[j] = j;
-                    z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
-                    r = (j > 2) ? j - 1 : 1;
+                        r = j - 1;
                 } else {
-                    diff_pos = x;
-                    diff_len = 2 - (idx[j] % 2);
-                    idx[j] = x;
-                    r = j;
+                    x = idx[j] + (idx[j] % 2) - 2;
+                    if (x >= (int32_t)j) {
+                        diff_pos = x;
+                        diff_len = 2 - (idx[j] % 2);
+                        idx[j] = x;
+                        r = 1;
+                    } else if (idx[j] == j) {
+                        diff_pos = j - 1;
+                        diff_len = 1;
+                        idx[j] = j - 1;
+                        z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
+                        r = j;
+                    } else if (idx[j] < j) {
+                        diff_pos = idx[j];
+                        diff_len = j - idx[j];
+                        idx[j] = j;
+                        z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
+                        r = (j > 2) ? j - 1 : 1;
+                    } else {
+                        diff_pos = x;
+                        diff_len = 2 - (idx[j] % 2);
+                        idx[j] = x;
+                        r = j;
+                    }
                 }
-            }
+
+                val ^= precomputed[diff_len - 1][diff_pos];
+                if (!call_function(f, val))
+                    break;
+                j = r;
+            } while(1);
         }
 
 	for(auto i = 0; i < 2; ++i)
