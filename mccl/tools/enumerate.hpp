@@ -30,23 +30,29 @@ public:
 
 
     template<typename T, typename F, size_t p>
-    void enumerate_p_val(const T* begin, const T* end, F&& f, T acc)
+    bool _enumerate_p_val(const T* begin, const T* end, F&& f, T acc)
     {
-        size_t count = end-begin;
-        if (count < p)
-            return;
-        for(auto it = begin; it != end; ++it)
+        if constexpr(p == 1)
         {
-            if constexpr(p == 1)
+            for (; begin != end; ++begin)
+                if (!call_function(f, *begin ^ acc))
+                    return false;
+        } else
+        {
+            for (; begin != end - (p-1); )
             {
-                if (!call_function(f,*it ^ acc))
-                    return;
-            }
-            else
-            {
-                enumerate_p_val<T, F, p-1>(it + 1, end, std::forward<F>(f), *it ^ acc);
+                T val = acc ^ *(begin++);
+                if (!_enumerate_p_val<T, F, p-1>(begin, end, std::forward<F>(f), val))
+                    return false;
             }
         }
+        return true;
+    }
+
+    template<typename T, typename F, size_t p>
+    void enumerate_p_val(const T* begin, const T* end, F&& f, T acc) {
+        if (begin + p <= end)
+            _enumerate_p_val<T,F,p>(begin, end, std::forward<F>(f), acc);
     }
 
     template<typename T, typename F>
@@ -54,7 +60,7 @@ public:
     {
         switch (p)
         {
-            default: throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 4 supported");
+            default: throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 5 supported");
             case 5:
                 enumerate_p_val<T, F, 5>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
@@ -72,25 +78,30 @@ public:
         }
     }
 
-    template<typename T, typename F, size_t p, size_t i=0>
-    void enumerate_p(const T* begin, const T* end, F&& f, T acc, size_t cur_idx)
+    template<typename T, typename F, size_t p, size_t i>
+    bool _enumerate_p(const T* begin, const T* end, F&& f, T acc, size_t cur_idx)
     {
-        size_t count = end-begin;
-        if (count < p-i)
-            return;
         idx[i] = cur_idx;
-        for(auto it = begin; it != end; ++it, ++idx[i])
+        if constexpr(i == p-1)
         {
-            if constexpr(i == p-1)
-            {
-                if (!call_function(f, idx+0, idx+p, *it ^ acc))
-                    return;
-            }
-            else
-            {
-                enumerate_p<T, F, p, i+1>(it + 1, end, std::forward<F>(f), *it ^ acc, idx[i]+1);
-            }
+            for (; begin != end; ++begin, ++idx[i])
+                if (!call_function(f, idx+0, idx+p, *begin ^ acc))
+                    return false;
+        } else
+        {
+            const T* real_end = end - (p-1-i);
+            for(; begin != real_end; ++begin, ++idx[i])
+                if (!_enumerate_p<T, F, p, i+1>(begin + 1, end, std::forward<F>(f), *begin ^ acc, idx[i]+1))
+                    return false;
         }
+        return true;
+    }
+
+    template<typename T, typename F, size_t p>
+    void enumerate_p(const T* begin, const T* end, F&& f, T acc)
+    {
+        if (begin + p <= end)
+            _enumerate_p<T, F, p, 0>(begin, end, std::forward<F>(f), acc, 0);
     }
 
     template<typename T, typename F>
@@ -100,19 +111,19 @@ public:
         {
             default: throw std::runtime_error("enumerate::enumerate: only 1 <= p <= 5 supported");
             case 5:
-                enumerate_p<T, F, 5>(begin,end,std::forward<F>(f), 0, 0);
+                enumerate_p<T, F, 5>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 4:
-                enumerate_p<T, F, 4>(begin,end,std::forward<F>(f), 0, 0);
+                enumerate_p<T, F, 4>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 3:
-                enumerate_p<T, F, 3>(begin,end,std::forward<F>(f), 0, 0);
+                enumerate_p<T, F, 3>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 2:
-                enumerate_p<T, F, 2>(begin,end,std::forward<F>(f), 0, 0);
+                enumerate_p<T, F, 2>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
             case 1:
-                enumerate_p<T, F, 1>(begin,end,std::forward<F>(f), 0, 0);
+                enumerate_p<T, F, 1>(begin,end,std::forward<F>(f), 0);
         }
     }
 
