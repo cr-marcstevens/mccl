@@ -169,6 +169,9 @@ public:
         switch (p)
         {
             default: throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 4 supported");
+            case 5:
+                enumerate_p_val<T, F, 5>(begin,end,std::forward<F>(f), 0);
+                __attribute__ ((fallthrough));
             case 4:
                 enumerate_p_val<T, F, 4>(begin,end,std::forward<F>(f), 0);
                 __attribute__ ((fallthrough));
@@ -334,7 +337,10 @@ public:
     {
         switch (p)
         {
-            default: throw std::runtime_error("enumerate::enumerate: only 1 <= p <= 4 supported");
+            default: throw std::runtime_error("enumerate::enumerate: only 1 <= p <= 5 supported");
+            case 5:
+                enumerate_p<T, F, 5>(begin,end,std::forward<F>(f), 0, 0);
+                __attribute__ ((fallthrough));
             case 4:
                 enumerate_p<T, F, 4>(begin,end,std::forward<F>(f), 0, 0);
                 __attribute__ ((fallthrough));
@@ -490,7 +496,10 @@ public:
     {
         switch (p) {
         default:
-            throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 4 supported");
+            throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 5 supported");
+        case 5:
+            enumerate_p_val<T, F, 5>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
         case 4:
             enumerate_p_val<T, F, 4>(begin, end, std::forward<F>(f));
             __attribute__((fallthrough));
