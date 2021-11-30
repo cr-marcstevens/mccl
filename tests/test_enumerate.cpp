@@ -186,11 +186,13 @@ int main(int argc, char** argv)
         size_t p = 4;
         size_t trials = 10;
 
+        std::cout << "Run enumerate enum_opt_t<uint32_t> with options k=" << k << ", p=" << p << std::endl;
+        bench_enumerate_val< enum_opt_t<uint32_t> >(k,p,trials);
+        std::cout << "Run enumerate enumerate_t<uint32_t> with options k=" << k << ", p=" << p << std::endl;
+        bench_enumerate_val< enumerate_t<uint32_t> >(k,p,trials);
         std::cout << "Run enumerate chase_t<uint32_t> with options k=" << k << ", p=" << p << std::endl;
         bench_enumerate_val< chase_t<uint32_t> >(k,p,trials);
 
-        std::cout << "Run enumerate enumerate_t<uint32_t> with options k=" << k << ", p=" << p << std::endl;
-        bench_enumerate_val< enumerate_t<uint32_t> >(k,p,trials);
 
         return 0;
     }
@@ -201,6 +203,10 @@ int main(int argc, char** argv)
 
     std::cout << "Testing enumerate_t<uint32_t>" << std::endl;
     status |= test_enumerate_val< enumerate_t<uint32_t> >(k, p_up_to);
+    status |= test_enumerate_idx< enumerate_t<uint32_t> >(k, p_up_to);
+
+    std::cout << "Testing enum_opt_t<uint32_t>" << std::endl;
+    status |= test_enumerate_val< enum_opt_t<uint32_t> >(k, p_up_to);
     status |= test_enumerate_idx< enumerate_t<uint32_t> >(k, p_up_to);
 
     std::cout << "Testing chase_t<uint32_t>" << std::endl;
