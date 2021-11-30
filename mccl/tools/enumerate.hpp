@@ -272,7 +272,7 @@ public:
         }
     }
 
-        template<typename T, typename F>
+    template<typename T, typename F>
     void enumerate5_val(const T* begin, const T* end, F&& f)
     {
         size_t count = end-begin;
@@ -490,22 +490,6 @@ public:
 
 /* ============= chase_t =========== */
 
-template<typename T, typename F>
-T** precompute(const T* begin, const T* end) {
-
-    T** precomputed = new T*[2];
-    for(int i = 0; i < 2; ++i) {
-        precomputed[i] = new T[end - begin];
-    }
-    for(auto it = begin; it != end-1; ++it) {
-        precomputed[0][it - begin] = *it ^ *(it+1);
-    }
-    for(auto it = begin; it != end-2; ++it) {
-        precomputed[1][it - begin] = *it ^ *(it+2);
-    }
-    return precomputed;
-}
-
 template<typename Idx = uint16_t>
 class chase_t
 {
@@ -541,87 +525,73 @@ public:
     template<typename T, typename F, size_t p>
     void enumerate_p_val(const T* begin, const T* end, F&& f)
     {
-        auto precomputed = precompute<T,F>(begin, end);
         index_type z[16];
+        T* precomputed[2];
+        T val = 0;
+        size_t count = end - begin, j = 0;
+        int x=0;
 
-        index_type diff_pos = 0;
-        index_type diff_len = 0;
-        int32_t x;
-        for (size_t j = 1; j <= p + 1; ++j) {
-            z[j] = 0;
-            idx[j] = end - begin - p - 1 + j;
-        }
-        auto val = 0;
-        for (size_t j = 1; j < p + 1; ++j) {
-            val ^= *(end - p - 1 + j);
-        }
-        if (call_function(f, val)) {
-            /* r is the least subscript with idx[r] >= r. */
-            size_t r = 1;
-            size_t j = r;
+        if (count < p)
+            return;
 
-            do {
-                if (z[j]) {
-                    x = idx[j] + 2;
-                    if (x < z[j]) {
-                        diff_pos = idx[j];
-                        diff_len = 2;
-                        idx[j] = x;
-                    } else if (x == z[j] && z[j + 1]) {
-                        diff_pos = idx[j];
-                        diff_len = 2 - (idx[j + 1] % 2);
-                        idx[j] = x - (idx[j + 1] % 2);
-                    } else {
-                        z[j] = 0;
-                        ++j;
-                        if (j <= p)
-                            continue;
-                        else
-                            break;
-                    }
-                    if (idx[1] > 0)
-                        r = 1;
-                    else
-                        r = j - 1;
+        for (size_t i = 1; i <= p; ++i)
+            val ^= *(end - i);
+        for (size_t i = 0; i <= p; ++i)
+            idx[i] = count - p + i;
+        if (!call_function(f, val))
+            return;
+
+        for (size_t i = 0; i < 2; ++i)
+            precomputed[i] = new T[count-1-i];
+        for (auto it = begin; it != end-1; ++it)
+            precomputed[0][it - begin] = *it ^ *(it+1);
+        for (auto it = begin; it != end-2; ++it)
+            precomputed[1][it - begin] = *it ^ *(it+2);
+
+        std::fill(z, z+16, 0);
+        /* j is the least subscript with idx[j+1] >= j. */
+        while (true) {
+            if (z[j] == 0) {
+                x = idx[j] + (idx[j]&1) - 2;
+                if (x > (int) j) {
+                    val ^= precomputed[~idx[j]&1][x];
+                    idx[j] = x;
+                    j = 0;
+                } else if (idx[j] == j+1) {
+                    val ^= precomputed[0][j];
+                    idx[j] = j;
+                    z[j] = idx[j + 1] - (~idx[j + 1] & 1);
+                } else if (idx[j] == j) {
+                    val ^= precomputed[0][j];
+                    idx[j] = j+1;
+                    z[j] = idx[j + 1] - (~idx[j + 1] & 1);
+                    if (j) j--;
                 } else {
-                    x = idx[j] + (idx[j] % 2) - 2;
-                    if (x >= (int32_t)j) {
-                        diff_pos = x;
-                        diff_len = 2 - (idx[j] % 2);
-                        idx[j] = x;
-                        r = 1;
-                    } else if (idx[j] == j) {
-                        diff_pos = j - 1;
-                        diff_len = 1;
-                        idx[j] = j - 1;
-                        z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
-                        r = j;
-                    } else if (idx[j] < j) {
-                        diff_pos = idx[j];
-                        diff_len = j - idx[j];
-                        idx[j] = j;
-                        z[j] = idx[j + 1] - ((idx[j + 1] + 1) % 2);
-                        r = (j > 2) ? j - 1 : 1;
-                    } else {
-                        diff_pos = x;
-                        diff_len = 2 - (idx[j] % 2);
-                        idx[j] = x;
-                        r = j;
-                    }
+                    val ^= precomputed[~idx[j]&1][x];
+                    idx[j] = x;
                 }
-
-                val ^= precomputed[diff_len - 1][diff_pos];
-                if (!call_function(f, val))
+            } else {
+                if (idx[j] + 2 < z[j]) {
+                    val ^= precomputed[1][idx[j]];
+                    idx[j] += 2;
+                } else if (idx[j] + 2 == z[j] && z[j + 1]) {
+                    val ^= precomputed[~idx[j+1]&1][idx[j]];
+                    idx[j] += 2 - (idx[j + 1] & 1);
+                } else {
+                    z[j] = 0;
+                    if (++j < p)
+                        continue;
                     break;
-                j = r;
-            } while(1);
-        }
+                }
+                j = idx[0] ? 0 : j - 1;
+            }
 
-	for(auto i = 0; i < 2; ++i)
-	    delete[] precomputed[i];   
-	
-	delete[] precomputed;
-    }
+            if (!call_function(f, val))
+                break;
+        }
+        for (size_t i = 0; i < 2; ++i)
+            delete[] precomputed[i];
+   }
 
     template<typename T, typename F>
     void enumerate_val(const T* begin, const T* end, size_t p, F&& f)
@@ -643,6 +613,100 @@ public:
             __attribute__((fallthrough));
         case 1:
             enumerate_p_val<T, F, 1>(begin, end, std::forward<F>(f));
+        }
+    }
+
+    template<typename T, typename F, size_t p>
+    void enumerate_p(const T* begin, const T* end, F&& f)
+    {
+        index_type z[16];
+        T* precomputed[2];
+        T val = 0;
+        size_t count = end - begin, j = 0;
+        int x=0;
+
+        if (count < p)
+            return;
+
+        for (size_t i = 1; i <= p; ++i)
+            val ^= *(end - i);
+        for (size_t i = 0; i <= p; ++i)
+            idx[i] = count - p + i;
+        if (!call_function(f, idx + 0, idx + p, val))
+            return;
+
+        for (size_t i = 0; i < 2; ++i)
+            precomputed[i] = new T[count-1-i];
+        for (auto it = begin; it != end-1; ++it)
+            precomputed[0][it - begin] = *it ^ *(it+1);
+        for (auto it = begin; it != end-2; ++it)
+            precomputed[1][it - begin] = *it ^ *(it+2);
+
+        std::fill(z, z+16, 0);
+        /* j is the least subscript with idx[j+1] >= j. */
+        while (true) {
+            if (z[j] == 0) {
+                x = idx[j] + (idx[j]&1) - 2;
+                if (x > (int) j) {
+                    val ^= precomputed[~idx[j]&1][x];
+                    idx[j] = x;
+                    j = 0;
+                } else if (idx[j] == j+1) {
+                    val ^= precomputed[0][j];
+                    idx[j] = j;
+                    z[j] = idx[j + 1] - (~idx[j + 1] & 1);
+                } else if (idx[j] == j) {
+                    val ^= precomputed[0][j];
+                    idx[j] = j+1;
+                    z[j] = idx[j + 1] - (~idx[j + 1] & 1);
+                    if (j) j--;
+                } else {
+                    val ^= precomputed[~idx[j]&1][x];
+                    idx[j] = x;
+                }
+            } else {
+                if (idx[j] + 2 < z[j]) {
+                    val ^= precomputed[1][idx[j]];
+                    idx[j] += 2;
+                } else if (idx[j] + 2 == z[j] && z[j + 1]) {
+                    val ^= precomputed[~idx[j+1]&1][idx[j]];
+                    idx[j] += 2 - (idx[j + 1] & 1);
+                } else {
+                    z[j] = 0;
+                    if (++j < p)
+                        continue;
+                    break;
+                }
+                j = idx[0] ? 0 : j - 1;
+            }
+
+            if (!call_function(f, idx + 0, idx + p, val))
+                break;
+        }
+        for (size_t i = 0; i < 2; ++i)
+            delete[] precomputed[i];
+    }
+
+    template<typename T, typename F>
+    void enumerate(const T* begin, const T* end, size_t p, F&& f)
+    {
+        switch (p) {
+        default:
+            throw std::runtime_error("enumerate::enumerate_val: only 1 <= p <= 5 supported");
+        case 5:
+            enumerate_p<T, F, 5>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 4:
+            enumerate_p<T, F, 4>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 3:
+            enumerate_p<T, F, 3>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 2:
+            enumerate_p<T, F, 2>(begin, end, std::forward<F>(f));
+            __attribute__((fallthrough));
+        case 1:
+            enumerate_p<T, F, 1>(begin, end, std::forward<F>(f));
         }
     }
 

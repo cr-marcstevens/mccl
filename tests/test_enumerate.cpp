@@ -127,8 +127,6 @@ int test_enumerate_idx(size_t k = 64, size_t p_up_to = 4)
     return status;
 }
 
-uint64_t sm = 0;
-
 template<typename Enumerate>
 int bench_enumerate_val(size_t k = 256, size_t p = 4, size_t trials = 10)
 {
@@ -211,7 +209,7 @@ int main(int argc, char** argv)
 
     std::cout << "Testing chase_t<uint32_t>" << std::endl;
     status |= test_enumerate_val< chase_t<uint32_t> >(k, p_up_to);
-    //status |= test_enumerate_idx< chase_t<uint32_t> >(k, p_up_to); // not implemented yet
+    status |= test_enumerate_idx< chase_t<uint32_t> >(k, p_up_to); // not implemented yet
 
     if (status == 0)
     {
