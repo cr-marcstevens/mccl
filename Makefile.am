@@ -2,7 +2,7 @@ EXTRA_DIST = README.md LICENSE
 ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = libmccl.la
-bin_PROGRAMS = bin/isdsolver
+bin_PROGRAMS = bin/isdsolver bin/lwssolver
 
 libmccl_la_LDFLAGS= -version-info 1:0:1 -no-undefined
 libmccl_la_SOURCES=\
@@ -50,6 +50,9 @@ libmccl_la_SOURCES=\
 
 bin_isdsolver_SOURCES= src/isdsolver.cpp
 bin_isdsolver_LDADD  = libmccl.la
+
+bin_lwssolver_SOURCES = src/lwssolver.cpp
+bin_lwssolver_LDADD   = libmccl.la
 
 TESTS=          tests/test_compile tests/test_unordered_multimap tests/test_matrix tests/test_parser tests/test_prange tests/test_dumer tests/test_collection
 
