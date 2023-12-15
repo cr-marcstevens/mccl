@@ -34,6 +34,8 @@ void SDP_generator::generate(int n, int k, int w)
 	tmpI.resize(n-k,n-k);
 	tmpI.set_identity();
 	_H.submatrix(0,n-k,0,n-k) = m_copy(tmpI);
+	
+	_G = dual_matrix(_H);
 
 	// generate syndrome
 	tmpS.resize(n-k);

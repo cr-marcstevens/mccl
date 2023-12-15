@@ -27,6 +27,7 @@ public:
 	void seed(uint64_t s) { rndgen.seed(s); }
 	uint64_t get_seed() { return rndgen.get_seed(); };
 
+	const mat_view& G() { return _G; }
 	const mat_view& H() { return _H; }
 	const vec_view& S() { return _S; }
 	int n() { return _n; };
@@ -35,6 +36,7 @@ public:
 		
 private:
 	int _n, _k, _w;
+	mat _G;
 	mat _H;
 	vec _S;
 	mat tmpH, tmpI;

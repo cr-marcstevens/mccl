@@ -24,15 +24,15 @@ using namespace mccl;
 
 /* run Trials */
 
-void run_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_t w, bool quiet)
+void run_LWS(lowweight_search_API& LWS, cmat_view& G, size_t w, bool quiet)
 {
-  ISD.initialize(H, S, w);
-  ISD.solve();
+  LWS.initialize(G, w);
+  LWS.solve();
   if (!quiet)
-    std::cout << "Solution found:\n" << ISD.get_solution() << std::endl;
+    std::cout << "Solution found:\n" << LWS.get_solution() << std::endl;
 }
 
-void runtrials_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_t w, size_t trials, bool quiet, bool generate, SDP_generator& generator)
+void runtrials_LWS(lowweight_search_API& LWS, cmat_view& G, size_t w, size_t trials, bool quiet, bool generate, SDP_generator& generator)
 {
   // run trials
   time_statistic time_trial_stat, time_total_stat;
@@ -42,20 +42,19 @@ void runtrials_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_
   {
     if(i > 0 && generate)
     {
-      generator.generate(H.columns(), H.columns()-H.rows(), w);
-      H.reset(generator.H());
-      S.reset(generator.S());
+      generator.generate(G.columns(), G.rows(), w);
+      G.reset(generator.G());
     }
     time_trial_stat.start();
-    run_ISD(ISD, H,S,w, quiet);
+    run_LWS(LWS, G,w, quiet);
     time_trial_stat.stop();
   }
   time_total_stat.stop();
 
   /* print basic overall statistics */
   double total_time = time_total_stat.total(), avg_time = time_trial_stat.mean();
-  double avg_loop_cnt = ISD.get_stats().cnt_loop_next.mean(),
-         total_loop_cnt = ISD.get_stats().cnt_loop_next.total();
+  double avg_loop_cnt = LWS.get_stats().cnt_loop_next.mean(),
+         total_loop_cnt = LWS.get_stats().cnt_loop_next.total();
 
   std::cout << "=== Basic statistics ===" << std::endl;
   std::cout << "  Time                 : mean= " << std::setw(10) << avg_time     << "s  total= " << std::setw(10) << total_time << "s" << std::endl;
@@ -68,10 +67,10 @@ void runtrials_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_
 
 /* run Benchmark */
 
-void benchmark_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_t w, size_t min_iterations, double min_total_time)
+void benchmark_LWS(lowweight_search_API& LWS, cmat_view& G, size_t w, size_t min_iterations, double min_total_time)
 {
-  ISD.initialize(H, S, w);
-  ISD.prepare_loop(true);
+  LWS.initialize(G, w);
+  LWS.prepare_loop(true);
   
   size_t its = min_iterations, total_its = 0;
   time_statistic total_time;
@@ -79,7 +78,7 @@ void benchmark_ISD(syndrome_decoding_API& ISD, cmat_view& H, cvec_view& S, size_
   while (true)
   {
     for (size_t i = 0; i < its; ++i)
-      ISD.loop_next();
+      LWS.loop_next();
       
     total_its += its;
     double total_elapsed_time = total_time.elapsed_time();
@@ -135,7 +134,7 @@ try
       auxopts("Extra options", line_length, line_length/2),
       genopts("Generator options", line_length, line_length/2),
       benchopts("Benchmark options", line_length, line_length/2),
-      isdopts("ISD options")
+      lwsopts("LWS options")
       ;
       
     // These are the core commands, you need at least one of these
@@ -143,15 +142,15 @@ try
       ("help,h", "Show options")
       ("manual", "Show manual")
       ("file,f", po::value<std::string>(&filepath), "Specify input file")
-      ("generate,g", "Generate random ISD instances")
+      ("generate,g", "Generate random LWS instances")
       ;
     // these are other configuration options
     auxopts.add_options()
       ("algo,a", po::value<std::string>(&algo)->default_value("P"), "Specify algorithm: P, LB, SDv0")
-      ("trials,t", po::value<size_t>(&trials)->default_value(1), "Number of ISD trials")
+      ("trials,t", po::value<size_t>(&trials)->default_value(1), "Number of LWS trials")
       ("quiet,q", po::bool_switch(&quiet), "Quiet: reduce verbosity of trials")
-      ("printinput", po::bool_switch(&print_input), "Print input H & S")
-      ("printstats", po::bool_switch(&print_stats), "Print ISD function call statistics")
+      ("printinput", po::bool_switch(&print_input), "Print input G")
+      ("printstats", po::bool_switch(&print_stats), "Print LWS function call statistics")
       ;
     // options for the generator
     genopts.add_options()
@@ -163,8 +162,8 @@ try
       ("w", po::value<int>(&w)->default_value(-1), "Error weight ( -1 = 1.05*d_GV )")
       ;
     benchopts.add_options()
-      ("benchmark", po::bool_switch(&benchmark), "Instead of many trials, benchmark ISD iterations on 1 instance")
-      ("minbenchits", po::value<size_t>(&min_bench_iterations)->default_value(100), "Minimum number of ISD iterations")
+      ("benchmark", po::bool_switch(&benchmark), "Instead of many trials, benchmark LWS iterations on 1 instance")
+      ("minbenchits", po::value<size_t>(&min_bench_iterations)->default_value(100), "Minimum number of LWS iterations")
       ("minbenchtime", po::value<double>(&min_bench_time)->default_value(100.0), "Minimal total time (s) for benchmark")
       ;
 
@@ -172,7 +171,7 @@ try
     std::vector< std::unique_ptr<module_configuration_API> > modules;
     
     // ========== ADD MODULE DEFAULT CONFIGURATIONS HERE ===============
-    modules.emplace_back( make_module_configuration( ISD_generic_config_default ) );
+    modules.emplace_back( make_module_configuration( lowweight_generic_config_default ) );
     modules.emplace_back( make_module_configuration( lee_brickell_config_default ) );
     modules.emplace_back( make_module_configuration( stern_dumer_config_default ) );
     // =================================================================
@@ -180,10 +179,10 @@ try
     //  if there are common options then only the first description is used
     //  any default values are ignored, so if no value is passed each algorithm can use its own default value
     for (auto& ptr : modules)
-      ptr->options_description_insert(isdopts);
+      ptr->options_description_insert(lwsopts);
 
     /* Parse all program options */
-    allopts.add(cmdopts).add(auxopts).add(genopts).add(benchopts).add(isdopts);
+    allopts.add(cmdopts).add(auxopts).add(genopts).add(benchopts).add(lwsopts);
     po::variables_map vm;
     // TODO: configuration file?
     // parse command line parameters
@@ -240,18 +239,18 @@ try
 
 
     /* Create the corresponding syndrome decoding object */
-    std::unique_ptr<syndrome_decoding_API> ISD_ptr;
+    std::unique_ptr<lowweight_search_API> LWS_ptr;
     std::unique_ptr<subISDT_API> subISD_ptr;
-    std::string ISD_conf_str, subISD_conf_str;
+    std::string LWS_conf_str, subISD_conf_str;
     
 
 #define INITIALIZE_ALGO(subISDT_type) \
     auto _subISD = new subISDT_type(); \
-    auto _ISD = new ISD_generic<subISDT_type>(*_subISD); \
+    auto _LWS = new lowweight_generic<subISDT_type>(*_subISD); \
     subISD_ptr.reset(_subISD); \
-    ISD_ptr.reset(_ISD); \
+    LWS_ptr.reset(_LWS); \
     subISD_conf_str = get_configuration_str(*_subISD); \
-    ISD_conf_str = get_configuration_str(*_ISD);
+    LWS_conf_str = get_configuration_str(*_LWS);
 
 
     // ==================== ADD NEW ALGORITHMS HERE ====================
@@ -281,8 +280,7 @@ try
     // =================================================================
 
     /* parse or generate instances */
-    cmat_view H;
-    cvec_view S;
+    cmat_view G;
 
     file_parser parser;
     SDP_generator generator;
@@ -302,8 +300,7 @@ try
         w = parser.w();
       if (w < 0)
         w = get_cryptographic_w(n, k);
-      H.reset(parser.H());
-      S.reset(parser.S());
+      G.reset(parser.G());
     }
     else
     {
@@ -317,21 +314,19 @@ try
         return 1;
       }
       generator.generate(n, k, w);
-      H.reset(generator.H());
-      S.reset(generator.S());
+      G.reset(generator.G());
     }
     
     std::cout << "Run settings       : n=" << n << " k=" << k << " w=" << w << " trials=" << trials;
     if (vm.count("generate"))
       std::cout << " genseed=" << genseed;
     std::cout << std::endl;
-    std::cout << " -     ISD generic : " << ISD_conf_str << std::endl;
+    std::cout << " -     LWS generic : " << LWS_conf_str << std::endl;
     std::cout << " - " << std::setw(15) << algo << " : " << subISD_conf_str << std::endl;
     
     if (print_input)
     {
-      std::cout << "H = \n" << H << std::endl;
-      std::cout << "S = " << S << std::endl;
+      std::cout << "G = \n" << G << std::endl;
     }
 
     /* run all trials / benchmark */
@@ -342,18 +337,18 @@ try
         min_bench_iterations = 1;
       if (min_bench_time <= 1.0)
         min_bench_time = 1.0;
-      benchmark_ISD(*ISD_ptr, H,S,w, min_bench_iterations, min_bench_time);
+      benchmark_LWS(*LWS_ptr, G,w, min_bench_iterations, min_bench_time);
     }
     else
     {
-      runtrials_ISD(*ISD_ptr, H,S,w, trials, quiet, vm.count("generate"), generator);
+      runtrials_LWS(*LWS_ptr, G,w, trials, quiet, vm.count("generate"), generator);
     }
 
     /* print detailed statistics */
     if (print_stats)
     {
       std::cout << "\n=== Detailed statistics ===" << std::endl;
-      ISD_ptr->get_stats().print(std::cout);
+      LWS_ptr->get_stats().print(std::cout);
       subISD_ptr->get_stats().print(std::cout);
     }
     

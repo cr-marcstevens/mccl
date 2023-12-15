@@ -29,6 +29,8 @@ libmccl_la_SOURCES=\
 	mccl/algorithm/decoding.cpp \
 	mccl/algorithm/isdgeneric.hpp \
 	mccl/algorithm/isdgeneric.cpp \
+	mccl/algorithm/lowweight_generic.hpp \
+	mccl/algorithm/lowweight_generic.cpp \
 	mccl/algorithm/prange.hpp \
 	mccl/algorithm/prange.cpp \
 	mccl/algorithm/lee_brickell.hpp \
