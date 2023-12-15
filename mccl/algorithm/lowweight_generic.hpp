@@ -83,7 +83,7 @@ vec solve_LWS(LWS_t& LWS, const lowweight_search_problem& LWSP)
 
 
 
-struct lowweight_config_t
+struct lowweight_generic_config_t
 {
     const std::string modulename = "lowweight";
     const std::string description = "Low Weight Search configuration";
@@ -114,8 +114,8 @@ struct lowweight_config_t
     template<typename Container>
     void process(Container& c)
     {
-        c(preprocessing, "preprocessing", 4, "Preprocess strategy: 0, 1, 2, 3, 4")
-        c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list")
+        c(preprocessing, "preprocessing", 4, "Preprocess strategy: 0, 1, 2, 3, 4");
+        c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
     }
 };
@@ -170,10 +170,6 @@ public:
     void initialize(const cmat_view& _G, unsigned int _w)
     {
         stats.cnt_initialize.inc();
-        // set parameters according to current config
-        l = config.l;
-        u = config.u;
-        update_type = config.updatetype;
 
         n = _G.columns();
         k = _G.rows();
@@ -288,9 +284,10 @@ public:
             }
 
             // this should be a correct solution at this point
+*/
             if (benchmark)
                 return true;
-
+/*
             // 3. construct full solution on echelon and ISD part
             if (wsol != (end-begin) + hammingweight(C))
                 throw std::runtime_error("ISD_generic::callback: internal error 1: w1partial is not correct?");
@@ -310,8 +307,8 @@ public:
                 solution.setbit(sol[i]);
             if (config.verify_solution && !check_solution())
                 throw std::runtime_error("ISD_generic::callback: internal error 3: solution is incorrect!");
-            return false;
 */
+            return false;
     }
     
     
