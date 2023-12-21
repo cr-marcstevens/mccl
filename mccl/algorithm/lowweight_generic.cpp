@@ -21,7 +21,8 @@ bool check_LWS_solution(const cmat_view& G, unsigned int w, const cvec_view& E)
     mat Gtmp; Gtmp.resize(G.rows()+1, G.columns());
     Gtmp.m_copy(G);
     Gtmp[G.rows()].v_copy(E);
-    auto pivot = echelonize(Gtmp.submatrix(0, G.rows()), G.columns() - G.rows());
+    auto Gtmpsub = Gtmp.submatrix(0, G.rows());
+    auto pivot = echelonize(Gtmpsub, G.columns() - G.rows());
     // check if G is a full rank generator matrix
     if (pivot != G.rows())
         return false;
