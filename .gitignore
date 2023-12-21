@@ -64,3 +64,4 @@ tests/test_marc
 /vs2022/.vs/isdsolver
 Debug
 Release
+/vs2022/lwssolver.vcxproj.user
