@@ -231,9 +231,15 @@ public:
             auto& bsol = babai.bestsol(soli);
             if (bsol.size() > 0)
             {
-                std::cout << "I@" << soli << "  " << std::flush;
+                std::cout << soli << " " << std::flush;
                 if (soli == 0)
+                {
                     std::cout << GLWS.G01()[0].hw() << " => " << babai.bestw(0) << std::endl;
+                    std::cout << "Old profile: ";
+                    for (unsigned j = 0; j < GLWS.G01().rows(); ++j)
+                        std::cout << babai.li(j) << " ";
+                    std::cout << std::endl;
+                }
                 GLWS.insert_sol(soli, bsol);
                 break;
             }            

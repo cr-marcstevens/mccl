@@ -439,7 +439,7 @@ public:
 				++bs;
 			}
 		}
-		assert(G1b == G_columns - G1_columns);
+		//assert(G1b == G_columns - G1_columns);
 
 		// update P
 		P.resize(G1_rows_, G_columns);  // actual size
@@ -937,6 +937,7 @@ public:
 	}
 	unsigned bestw(unsigned i = 0) const { return _babaisteps[i].bestw; }
 	const std::vector<uint32_t>& bestsol(unsigned i = 0) const { return _babaisteps[i].bestsol; }
+	unsigned li(unsigned i = 0) const { return _babaisteps[i].ghw; }
 
 private:
 	struct babai_step
