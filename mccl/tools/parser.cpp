@@ -115,9 +115,10 @@ void file_parser::_postprocess_matrices()
 	if (_G.rows() != 0 || _G.columns() != 0)
 	{
 		// bring in echelon form
-		_G.resize( echelonize(_G), _G.columns() );
+		mat tmp(_G);
+		tmp.resize( echelonize(tmp), tmp.columns() );
 		// generate H
-		_H = dual_matrix(_G);
+		_H = dual_matrix(tmp);
 		return;
 	}
 	if (!_Hparsed.empty())

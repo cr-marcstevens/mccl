@@ -123,6 +123,7 @@ struct lowweight_generic_config_t
     unsigned int lws_p = 3;
     unsigned int lws_wd = 1;
     bool verify_solution = true;
+    unsigned int initg1rows = 1;
 
     template<typename Container>
     void process(Container& c)
@@ -133,6 +134,7 @@ struct lowweight_generic_config_t
         c(lws_p, "p", 2, "LWS Stern/Wagner: enumerate over p rows for each list");
         c(lws_wd, "wd", 1, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
+        c(initg1rows, "initg1rows", 1, "Initial number of G1 rows from loaded matrix");
     }
 };
 
@@ -191,7 +193,7 @@ public:
         k = _G.rows();
         w = _w;
         Gorg.reset(_G);
-        GLWS.reset(_G, 0);
+        GLWS.reset(_G, 1);
         G3.resize(n, k);
         G3.m_clear();
 

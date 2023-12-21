@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <fstream>
 
 MCCL_BEGIN_NAMESPACE
 
@@ -411,6 +412,8 @@ public:
 		perm.resize(G_columns);
 		std::iota(perm.begin(), perm.end(), 0);
 
+		std::cout << "l0=" << G[0].hw() << std::endl;
+
 		update_G1(G1_rows_);
 		echelonize_G2I3();
 	}
@@ -560,6 +563,21 @@ public:
 		if (gi == 0)
 		{
 			std::cout << "insert_sol: hw0=" << G[gi].hw() << std::endl;
+		}
+		if (gi == 0)
+		{
+			// undo column permutation
+			for (unsigned j = 0; j < perm.size(); ++j)
+			{
+				while (perm[j] != j)
+				{
+					// move column j to its correct position
+					G.swapcolumns(j, perm[j]);
+					std::swap(perm[j], perm[perm[j]]);
+				}
+			}
+			std::ofstream ofs("G_" + std::to_string(G[gi].hw()));
+			ofs << "# g" << std::endl << G << std::endl;
 		}
 		if (gi == 0 && hwi < G[gi].hw())
 		{
