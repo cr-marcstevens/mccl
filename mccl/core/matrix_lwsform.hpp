@@ -18,7 +18,7 @@ class wagner_search
 {
 public:
 	typedef std::pair<uint64_t, uint64_t> pair_t;
-	static const size_t _hashmap_density = 8;
+	static const size_t _hashmap_density = 4;
 	static const size_t _hashmap_prefetchcache = 128;
 
 	wagner_search() { _key_offset = 1; }
@@ -44,7 +44,7 @@ public:
 		{
 			_hashmap.resize(newsize);
 			for (unsigned i = 0; i < _hashmap.size(); ++i)
-				_hashmap[i].first = i/_hashmap_density;
+				_hashmap[i].first = i / _hashmap_density;
 		}
 		newsize = size_t(2) << bits;
 		if (_curresults.size() < newsize)
@@ -68,7 +68,7 @@ public:
 	void enumerate1(int rowbeg, int rowend, F&& f)
 	{
 		if (rowend > uint64_t(1) << _index_bits) throw;
-		uint64_t val = 0, idx_base = ((uint64_t(1) << (2*_index_bits))-1) << (1 * _index_bits);
+		uint64_t val = 0, idx_base = ((uint64_t(1) << (2 * _index_bits)) - 1) << (1 * _index_bits);
 		for (int i = rowbeg; i < rowend; ++i)
 			f(_firstwords[i], idx_base + uint64_t(i));
 	}
@@ -140,8 +140,8 @@ public:
 		{
 			if (0 != ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
 			{
-				_hashmap[bucketidx+j].first = val;
-				_hashmap[bucketidx+j].second = idx;
+				_hashmap[bucketidx + j].first = val;
+				_hashmap[bucketidx + j].second = idx;
 				return;
 			}
 		}
@@ -178,7 +178,7 @@ public:
 		for (int j = 0; j < _hashmap_density; ++j)
 		{
 			if (0 == ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
-				list2match(_hashmap[bucketidx + j], pair_t(val,idx));
+				list2match(_hashmap[bucketidx + j], pair_t(val, idx));
 			else
 				break;
 		}
@@ -206,15 +206,15 @@ public:
 			throw;
 		//cache_insert_flush();
 	}
-	void list2match(const pair_t& elm1, const pair_t& elm2)
+	inline void list2match(const pair_t& elm1, const pair_t& elm2)
 	{
 		uint64_t val2 = (elm1.first ^ elm2.first);
-		if ((val2 & _key_mask) != 0)
-			throw;
+		//		if ((val2 & _key_mask) != 0)
+					//throw;
 		uint64_t idx2 = (elm1.second << (_index_bits * 3)) | elm2.second;
 		//(elm2.second & ((uint64_t(1) << (_index_bits * 3)) - 1))
 //			| (elm1.second << (_index_bits * 3));
-		checkval(val2, idx2, 6);
+		//checkval(val2, idx2, 6);
 		_curresults[_curresults_size].first = val2;
 		_curresults[_curresults_size].second = idx2;
 		++_curresults_size;
@@ -233,6 +233,50 @@ public:
 		//cache_match_flush<1>();
 	}
 
+	template<typename Babai>
+	void genlist3(Babai& babai)
+	{
+		uint32_t rowidx[32];
+		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+		for (size_t i = 0; i < _curresults_size; ++i)
+		{
+			if (_curresults[i].first & _key_mask) throw;
+			uint64_t val = _curresults[i].first >>= _collision_bits, idx = _curresults[i].second;
+			uint64_t bucketidx = _bucketidx(val);
+			for (unsigned j = 0; j < _hashmap_density; ++j)
+			{
+				if (0 != ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
+				{
+					_hashmap[bucketidx + j].first = val;
+					_hashmap[bucketidx + j].second = idx;
+					break;
+				}
+				unsigned nrrows = 0;
+				uint64_t dec = idx;
+				for (unsigned j = 0; j < 6; ++j, dec >>= _index_bits)
+				{
+					if ((dec & idxmask) < _firstwords.size())
+					{
+						rowidx[nrrows] = dec & idxmask;
+						++nrrows;
+					}
+				}
+				dec = _hashmap[bucketidx + j].second;
+				for (unsigned j = 0; j < 6; ++j, dec >>= _index_bits)
+				{
+					if ((dec & idxmask) < _firstwords.size())
+					{
+						rowidx[nrrows] = dec & idxmask;
+						++nrrows;
+					}
+				}
+				std::sort(rowidx + 0, rowidx + nrrows);
+				auto it = std::unique(rowidx + 0, rowidx + nrrows);
+				babai(rowidx + 0, it);
+			}
+		}
+	}
+
 	template<typename Mat>
 	const std::vector<uint32_t>& search_G2(const Mat& G2, int p, int wd, int maxw = 65536)
 	{
@@ -249,13 +293,13 @@ public:
 		_collision_bits = collision_bits(G2.rows(), p) - 1;
 		_key_mask = (uint64_t(1) << _collision_bits) - 1;
 
-/*
-		std::cout << "Wagner: G2: " << G2.rows() << " x " << G2.columns() << std::endl << G2 << std::endl;
-		std::cout << "Wagner: _index_bits = " << _index_bits << std::endl;
-		std::cout << "Wagner: p=" << p << " wd=" << wd << std::endl;
-		std::cout << "Wagner: _collision_bits = " << _collision_bits << std::endl;
-		std::cout << "Wagner: _key_mask = 0x" << std::hex << _key_mask << std::dec << std::endl;
-		*/
+		/*
+				std::cout << "Wagner: G2: " << G2.rows() << " x " << G2.columns() << std::endl << G2 << std::endl;
+				std::cout << "Wagner: _index_bits = " << _index_bits << std::endl;
+				std::cout << "Wagner: p=" << p << " wd=" << wd << std::endl;
+				std::cout << "Wagner: _collision_bits = " << _collision_bits << std::endl;
+				std::cout << "Wagner: _key_mask = 0x" << std::hex << _key_mask << std::dec << std::endl;
+				*/
 
 		_bestsol_w = G2.columns();
 		for (unsigned i = 0; i < G2.rows(); ++i)
@@ -280,17 +324,17 @@ public:
 
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
-//		size_t badresults = 0 , goodresults = 0;
+		//		size_t badresults = 0 , goodresults = 0;
 		for (size_t i = 0; i < _curresults_size; ++i)
 		{
-//			checkval(_curresults[i].first, _curresults[i].second, 6);
-			//if (hammingweight(_curresults[i].first) + 1 > maxw)
-//				continue;
+			//			checkval(_curresults[i].first, _curresults[i].second, 6);
+						//if (hammingweight(_curresults[i].first) + 1 > maxw)
+			//				continue;
 			uint64_t idx = _curresults[i].second;
 
 			unsigned nrrows = 1;
 			tmp.v_copy(G2[idx & idxmask]);
-//			uint64_t val = _firstwords[idx & idxmask];
+			//			uint64_t val = _firstwords[idx & idxmask];
 
 			idx >>= _index_bits;
 			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
@@ -298,14 +342,14 @@ public:
 				if ((idx & idxmask) < G2.rows())
 				{
 					tmp.v_xor(G2[idx & idxmask]);
-//					val ^= _firstwords[idx & idxmask];
+					//					val ^= _firstwords[idx & idxmask];
 					++nrrows;
 				}
 			}
-//			if (val & _key_mask)
-	//			++badresults;
-		//	else
-			//	++goodresults;
+			//			if (val & _key_mask)
+				//			++badresults;
+					//	else
+						//	++goodresults;
 
 			if (tmp.hw() + nrrows < _bestsol_w)
 			{
@@ -360,38 +404,34 @@ public:
 		//std::cout << "Wagner: genlist2" << std::endl;
 		genlist2(p);
 
-		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
-		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
-		uint32_t rowidx[32];
-		//size_t badresults = 0;
-		for (size_t i = 0; i < _curresults_size; ++i)
+		if (wd == 1)
 		{
-			uint64_t idx = _curresults[i].second;
-			rowidx[0] = idx & idxmask;
-			//uint64_t val = _firstwords[rowidx[0]];
-			unsigned nrrows = 1;
-			idx >>= _index_bits;
-			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
+			uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+			uint32_t rowidx[32];
+			for (size_t i = 0; i < _curresults_size; ++i)
 			{
-				if ((idx & idxmask) != idxmask)
+				uint64_t idx = _curresults[i].second;
+				rowidx[0] = idx & idxmask;
+				unsigned nrrows = 1;
+				idx >>= _index_bits;
+				for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
 				{
-					//if ((idx & idxmask) >= G2.rows())
-						//throw;
-					rowidx[nrrows] = idx & idxmask;
-					//val ^= _firstwords[rowidx[nrrows]];
-					++nrrows;
+					if ((idx & idxmask) != idxmask)
+					{
+						rowidx[nrrows] = idx & idxmask;
+						++nrrows;
+					}
 				}
+				babai(rowidx + 0, rowidx + nrrows);
 			}
-			//if (val & _key_mask)
-				//++badresults;
-				//std::cout << std::hex << val << " " << std::flush;
-			babai(rowidx + 0, rowidx + nrrows);
+			return;
 		}
-		//if (badresults > 0)
-		//{
-//			std::cout << "badresults: " << badresults << std::endl;
-			//throw;
-		//}
+		if (wd == 2)
+		{
+			_hashmap_clear();
+			genlist3(babai);
+		}
+
 	}
 
 private:
@@ -429,10 +469,10 @@ private:
 
 /*
    Class to bring G in desired LWS form:
-      G = ( 0   | 0 | G1 )
-          ( G2  | I | G3 )
-      where G1 is an epipodal basis form 
-      for Babai lifting of low weight vectors from (G2 | I)
+	  G = ( 0   | 0 | G1 )
+		  ( G2  | I | G3 )
+	  where G1 is an epipodal basis form
+	  for Babai lifting of low weight vectors from (G2 | I)
 
    For the purpose of efficient Babai lifting, addition 0-columns can be inserted
    to align each epipodal basis support to minimize splitting over 64-bit words & over SIMD-blocks
@@ -654,8 +694,8 @@ public:
 	cvec_view_it operator()(size_t r) const { return G[r]; }
 
 	const cmat_view& Gpadded() const { return G; }
-//	size_t echelonrows() const { return echelon_rows; }
-//	size_t ISDrows() const { return ISD_rows; }
+	//	size_t echelonrows() const { return echelon_rows; }
+	//	size_t ISDrows() const { return ISD_rows; }
 
 	const cmat_view_t<this_block_tag>& Gfull()   const { return G; }
 
@@ -944,10 +984,10 @@ public:
 		_firstwords.resize(_G2I3.rows());
 		for (unsigned i = 0; i < _G2I3.rows(); ++i)
 			_firstwords[i] = (*_G2I3[i].word_ptr());
-//		std::cout << "Babai : " << std::hex << _firstwords[0] << " " << _firstwords[1] << std::endl;
+		//		std::cout << "Babai : " << std::hex << _firstwords[0] << " " << _firstwords[1] << std::endl;
 
 
-		//std::cout << "Babai initialize: " << _G.rows() << " " << _G01.rows() << " " << _G2I3.rows() << std::endl;
+				//std::cout << "Babai initialize: " << _G.rows() << " " << _G01.rows() << " " << _G2I3.rows() << std::endl;
 
 		_babaisteps.resize(G1_rows);
 
@@ -959,7 +999,7 @@ public:
 			while (bbeg > 0 && G(i, bbeg - 1))
 				--bbeg;
 			_babaisteps[i].ghw = bend - bbeg;
-			_babaisteps[i].gbound = (bend - bbeg)/2 + 1;
+			_babaisteps[i].gbound = (bend - bbeg) / 2 + 1;
 			b = bbeg;
 
 			// round down to 64 bit border
@@ -974,7 +1014,7 @@ public:
 			//std::cout << "G" << i << " = " << G[i] << std::endl;
 			//std::cout << "li=" << _babaisteps[i].ghw << " " << _babaisteps[i].gwindow.hw() << std::endl;
 			//std::cout << _babaisteps[i].gwindow << std::endl;
-			
+
 		}
 		_G2I_columns = b;
 	}
@@ -1032,7 +1072,7 @@ private:
 		unsigned bestw;
 	};
 	std::vector<babai_step> _babaisteps;
-	
+
 	cmat_view_t<this_block_tag> _G, _G01, _G2I3;
 	vec_t<this_block_tag> tmp;
 	unsigned _G2I_columns;

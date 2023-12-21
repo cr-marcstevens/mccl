@@ -121,7 +121,7 @@ struct lowweight_generic_config_t
     unsigned int preprocess_p = 2; // Stern/Wagner: enumerate over p rows for each list
     unsigned int preprocess_wd = 1; // Wagner iterations (1 means Stern)
     unsigned int lws_p = 3;
-    unsigned int lws_wd = 1;
+    unsigned int lws_wd = 2;
     bool verify_solution = true;
     unsigned int initg1rows = 1;
 
@@ -132,7 +132,7 @@ struct lowweight_generic_config_t
         c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list");
         c(preprocess_wd, "preprocess_wd", 1, "Preprocess Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(lws_p, "lws_p", 3, "LWS Stern/Wagner: enumerate over p rows for each list");
-        c(lws_wd, "lws_wd", 1, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
+        c(lws_wd, "lws_wd", 2, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
         c(initg1rows, "initg1rows", 1, "Initial number of G1 rows from loaded matrix");
     }
