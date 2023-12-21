@@ -21,7 +21,7 @@ public:
 	static const size_t _hashmap_density = 8;
 	static const size_t _hashmap_prefetchcache = 128;
 
-	wagner_search() { _key_offset = 0; }
+	wagner_search() { _key_offset = 1; }
 
 	unsigned collision_bits(int rows, int p)
 	{
@@ -41,7 +41,11 @@ public:
 		unsigned bits = collision_bits(rows, p);
 		size_t newsize = size_t(_hashmap_density) << bits;
 		if (_hashmap.size() < newsize)
+		{
 			_hashmap.resize(newsize);
+			for (unsigned i = 0; i < _hashmap.size(); ++i)
+				_hashmap[i].first = i/_hashmap_density;
+		}
 		newsize = size_t(2) << bits;
 		if (_curresults.size() < newsize)
 			_curresults.resize(newsize);
@@ -57,22 +61,25 @@ public:
 		_firstwords.resize(G2.rows());
 		for (unsigned i = 0; i < G2.rows(); ++i)
 			_firstwords[i] = (*G2[i].word_ptr()) & _firstwordmask;
+		//std::cout << "Wagner: " << std::hex << _firstwords[0] << " " << _firstwords[1] << std::endl;
 	}
 
 	template<typename F>
 	void enumerate1(int rowbeg, int rowend, F&& f)
 	{
-		uint64_t val = 0, idx = 0, idx_base = (~uint64_t(0)) << _index_bits;
+		if (rowend > uint64_t(1) << _index_bits) throw;
+		uint64_t val = 0, idx_base = ((uint64_t(1) << (2*_index_bits))-1) << (1 * _index_bits);
 		for (int i = rowbeg; i < rowend; ++i)
-			f(_firstwords[i], idx_base + i);
+			f(_firstwords[i], idx_base + uint64_t(i));
 	}
 	template<typename F>
 	void enumerate2(int rowbeg, int rowend, F&& f)
 	{
-		uint64_t val = 0, idx = 0, idx_base = (~uint64_t(0)) << (_index_bits * 2);
+		if (rowend > uint64_t(1) << _index_bits) throw;
+		uint64_t val = 0, idx_base = ((uint64_t(1) << (1 * _index_bits)) - 1) << (2 * _index_bits);
 		for (int i1 = rowbeg; i1 < rowend - 1; ++i1)
 		{
-			uint64_t idx = idx_base + (i1 << _index_bits);
+			uint64_t idx = idx_base + (uint64_t(i1) << _index_bits);
 			for (int i2 = i1 + 1; i2 < rowend; ++i2)
 				f(_firstwords[i1] ^ _firstwords[i2], idx + i2);
 		}
@@ -80,14 +87,15 @@ public:
 	template<typename F>
 	void enumerate3(int rowbeg, int rowend, F&& f)
 	{
-		uint64_t val = 0, idx = 0, idx_base = (~uint64_t(0)) << (_index_bits * 3);
+		if (rowend > uint64_t(1) << _index_bits) throw;
+		uint64_t val = 0, idx_base = 0;
 		int mid = rowbeg + ((rowend - rowbeg) / 2);
 		for (int i2 = rowbeg + 1; i2 < mid; ++i2)
 		{
 			for (int i1 = rowbeg; i1 < i2; ++i1)
 			{
 				uint64_t val = _firstwords[i2] ^ _firstwords[i1];
-				uint64_t idx = idx_base + (i1 << (2 * _index_bits)) + (i2 << _index_bits);
+				uint64_t idx = idx_base + (uint64_t(i1) << (2 * _index_bits)) + (uint64_t(i2) << _index_bits);
 				for (int i3 = i2 + 1; i3 < rowend; ++i3)
 					f(val ^ _firstwords[i3], idx + i3);
 			}
@@ -97,17 +105,28 @@ public:
 			for (int i3 = i2 + 1; i3 < rowend; ++i3)
 			{
 				uint64_t val = _firstwords[i2] ^ _firstwords[i3];
-				uint64_t idx = idx_base + (i3 << (2 * _index_bits)) + (i2 << _index_bits);
+				uint64_t idx = idx_base + (uint64_t(i3) << (2 * _index_bits)) + (uint64_t(i2) << _index_bits);
 				for (int i1 = rowbeg; i1 < i2; ++i1)
 					f(val ^ _firstwords[i1], idx + i1);
 			}
 		}
 	}
 
+	void checkval(uint64_t val, uint64_t idx, unsigned c = 3)
+	{
+		uint64_t val2 = 0;
+		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+		for (unsigned j = 0; j < c; ++j, idx >>= _index_bits)
+			if ((idx & idxmask) != idxmask)
+				val2 ^= _firstwords[idx & idxmask];
+		if (val2 != val)
+			throw;
+	}
 	void cache_insert(uint64_t val, uint64_t idx)
 	{
+		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
-		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
+		//__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_insertcache.emplace_back(val, idx);
 		if (_insertcache.size() >= _hashmap_prefetchcache)
 			cache_insert_flush();
@@ -116,7 +135,7 @@ public:
 	{
 		for (unsigned i = 0; i < _insertcache.size(); ++i)
 		{
-			uint64_t val = _insertcache[i].first, idx = _insertcache[i].second;
+			uint64_t val = _insertcache[i].first;
 			uint64_t bucketidx = _bucketidx(val);
 			// always try the first position directly
 			if (0 != ((val ^ _hashmap[bucketidx].first) & _key_mask))
@@ -140,8 +159,9 @@ public:
 	template<int step>
 	void cache_match(uint64_t val, uint64_t idx)
 	{
+		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
-		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
+		//__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_matchcache.emplace_back(val, idx);
 		if (_matchcache.size() >= _hashmap_prefetchcache)
 			cache_match_flush<step>();
@@ -151,12 +171,14 @@ public:
 	{
 		for (unsigned i = 0; i < _matchcache.size(); ++i)
 		{
-			uint64_t val = _matchcache[i].first, idx = _matchcache[i].second;
+			uint64_t val = _matchcache[i].first;
 			uint64_t bucketidx = _bucketidx(val);
 			for (int j = 0; j < _hashmap_density; ++j)
 			{
 				if (0 == ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
 				{
+					checkval(_hashmap[bucketidx + j].first, _hashmap[bucketidx + j].second);
+					checkval(_matchcache[i].first, _matchcache[i].second);
 					//std::cout << "!";
 					if (step == 1)
 						list2match(_hashmap[bucketidx + j], _matchcache[i]);
@@ -185,8 +207,10 @@ public:
 		uint64_t val2 = (elm1.first ^ elm2.first);
 		if ((val2 & _key_mask) != 0)
 			throw;
-		uint64_t idx2 = (elm2.second & ((uint64_t(1) << (_index_bits * 3)) - 1))
-			| (elm1.second << (_index_bits * 3));
+		uint64_t idx2 = (elm1.second << (_index_bits * 3)) | elm2.second;
+		//(elm2.second & ((uint64_t(1) << (_index_bits * 3)) - 1))
+//			| (elm1.second << (_index_bits * 3));
+		checkval(val2, idx2, 6);
 		_curresults[_curresults_size].first = val2;
 		_curresults[_curresults_size].second = idx2;
 		++_curresults_size;
@@ -252,37 +276,48 @@ public:
 
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+		size_t badresults = 0 , goodresults = 0;
 		for (size_t i = 0; i < _curresults_size; ++i)
 		{
-			if (hammingweight(_curresults[i].first) + 1 > maxw)
-				continue;
+			checkval(_curresults[i].first, _curresults[i].second, 6);
+			//if (hammingweight(_curresults[i].first) + 1 > maxw)
+//				continue;
 			uint64_t idx = _curresults[i].second;
 
 			unsigned nrrows = 1;
 			tmp.v_copy(G2[idx & idxmask]);
+			uint64_t val = _firstwords[idx & idxmask];
 
 			idx >>= _index_bits;
-			for (unsigned j = 1; j < (2 * p); ++j, idx >>= _index_bits)
+			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
 			{
 				if ((idx & idxmask) < G2.rows())
 				{
 					tmp.v_xor(G2[idx & idxmask]);
+					val ^= _firstwords[idx & idxmask];
 					++nrrows;
 				}
 			}
+			if (val & _key_mask)
+				++badresults;
+			else
+				++goodresults;
+
 			if (tmp.hw() + nrrows < _bestsol_w)
 			{
 				//std::cout << "Wagner.search_G2: improved: i=" << i << ": " << _bestsol_w << " => " << tmp.hw() + nrrows << ": 0x" << _curresults[i].second << std::endl;
 				_bestsol_w = tmp.hw() + nrrows;
 				_bestsol_rows.clear();
 				idx = _curresults[i].second;
-				for (unsigned j = 0; j < (2 * p); ++j, idx >>= _index_bits)
+				for (unsigned j = 0; j < 6; ++j, idx >>= _index_bits)
 				{
 					if ((idx & idxmask) < G2.rows())
 						_bestsol_rows.emplace_back(idx & idxmask);
 				}
 			}
 		}
+		if (badresults)
+			throw;
 		return _bestsol_rows;
 	}
 
@@ -300,15 +335,17 @@ public:
 
 		_index_bits = detail::log2(G2.rows());
 		_collision_bits = collision_bits(G2.rows(), p) - 1;
+		if (G2.columns() < _collision_bits * wd)
+			throw;
 		_key_mask = (uint64_t(1) << _collision_bits) - 1;
 
 		/*
-				std::cout << "Wagner: G2: " << G2.rows() << " x " << G2.columns() << std::endl << G2 << std::endl;
-				std::cout << "Wagner: _index_bits = " << _index_bits << std::endl;
-				std::cout << "Wagner: p=" << p << " wd=" << wd << std::endl;
-				std::cout << "Wagner: _collision_bits = " << _collision_bits << std::endl;
-				std::cout << "Wagner: _key_mask = 0x" << std::hex << _key_mask << std::dec << std::endl;
-				*/
+		std::cout << "Wagner: G2: " << G2.rows() << " x " << G2.columns() << std::endl << G2 << std::endl;
+		std::cout << "Wagner: _index_bits = " << _index_bits << std::endl;
+		std::cout << "Wagner: p=" << p << " wd=" << wd << std::endl;
+		std::cout << "Wagner: _collision_bits = " << _collision_bits << std::endl;
+		std::cout << "Wagner: _key_mask = 0x" << std::hex << _key_mask << std::dec << std::endl;
+		*/
 
 		_hashmap_clear();
 		_results_clear();
@@ -322,21 +359,34 @@ public:
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
 		uint32_t rowidx[32];
+		size_t badresults = 0;
 		for (size_t i = 0; i < _curresults_size; ++i)
 		{
 			uint64_t idx = _curresults[i].second;
 			rowidx[0] = idx & idxmask;
+			uint64_t val = _firstwords[rowidx[0]];
 			unsigned nrrows = 1;
 			idx >>= _index_bits;
-			for (unsigned j = 1; j < (2 * p); ++j, idx >>= _index_bits)
+			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
 			{
-				if ((idx & idxmask) < G2.rows())
+				if ((idx & idxmask) != idxmask)
 				{
+					if ((idx & idxmask) >= G2.rows())
+						throw;
 					rowidx[nrrows] = idx & idxmask;
+					val ^= _firstwords[rowidx[nrrows]];
 					++nrrows;
 				}
 			}
+			if (val & _key_mask)
+				++badresults;
+				//std::cout << std::hex << val << " " << std::flush;
 			babai(rowidx + 0, rowidx + nrrows);
+		}
+		if (badresults > 0)
+		{
+			std::cout << "badresults: " << badresults << std::endl;
+			throw;
 		}
 	}
 
@@ -886,6 +936,12 @@ public:
 		_G2I3.reset(G.submatrix(G1_rows, G.rows() - G1_rows));
 		tmp.resize(G.columns());
 
+		_firstwords.resize(_G2I3.rows());
+		for (unsigned i = 0; i < _G2I3.rows(); ++i)
+			_firstwords[i] = (*_G2I3[i].word_ptr());
+//		std::cout << "Babai : " << std::hex << _firstwords[0] << " " << _firstwords[1] << std::endl;
+
+
 		//std::cout << "Babai initialize: " << _G.rows() << " " << _G01.rows() << " " << _G2I3.rows() << std::endl;
 
 		_babaisteps.resize(G1_rows);
@@ -927,6 +983,8 @@ public:
 		tmp.v_copy(_G2I3[*rit]); ++rit;
 		for (; rit != rend; ++rit)
 			tmp.v_xor(_G2I3[*rit]);
+		//std::cout << "Babai: tmp=" << tmp << std::endl;
+		//throw std::runtime_error("");
 		// now babai lift it for each g*_l, ..., g*_1
 		unsigned w = tmp.subvector(_G2I_columns).hw();
 		uint64_t G1solpart = 0;
@@ -973,6 +1031,7 @@ private:
 	cmat_view_t<this_block_tag> _G, _G01, _G2I3;
 	vec_t<this_block_tag> tmp;
 	unsigned _G2I_columns;
+	std::vector<uint64_t> _firstwords;
 };
 
 MCCL_END_NAMESPACE

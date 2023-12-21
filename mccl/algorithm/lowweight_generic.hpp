@@ -131,8 +131,8 @@ struct lowweight_generic_config_t
         c(preprocessing, "preprocessing", 4, "Preprocess strategy: 0, 1, 2, 3, 4");
         c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list");
         c(preprocess_wd, "preprocess_wd", 1, "Preprocess Stern/Wagner: wd Wagner iterations (1=Stern)");
-        c(lws_p, "p", 2, "LWS Stern/Wagner: enumerate over p rows for each list");
-        c(lws_wd, "wd", 1, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
+        c(lws_p, "lws_p", 3, "LWS Stern/Wagner: enumerate over p rows for each list");
+        c(lws_wd, "lws_wd", 1, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
         c(initg1rows, "initg1rows", 1, "Initial number of G1 rows from loaded matrix");
     }
