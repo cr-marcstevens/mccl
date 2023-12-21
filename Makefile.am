@@ -37,6 +37,8 @@ libmccl_la_SOURCES=\
 	mccl/algorithm/lee_brickell.cpp \
 	mccl/algorithm/stern_dumer.hpp \
 	mccl/algorithm/stern_dumer.cpp \
+	mccl/algorithm/wagner.hpp \
+	mccl/algorithm/wagner.cpp \
 	\
 	mccl/tools/parser.hpp \
 	mccl/tools/parser.cpp \
