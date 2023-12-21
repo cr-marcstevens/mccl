@@ -114,6 +114,7 @@ public:
 
 	void checkval(uint64_t val, uint64_t idx, unsigned c = 3)
 	{
+#if 0
 		uint64_t val2 = 0;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
 		for (unsigned j = 0; j < c; ++j, idx >>= _index_bits)
@@ -121,12 +122,35 @@ public:
 				val2 ^= _firstwords[idx & idxmask];
 		if (val2 != val)
 			throw;
+#endif
+	}
+
+	void insert(uint64_t val, uint64_t idx)
+	{
+		uint64_t bucketidx = _bucketidx(val);
+		// always try the first position directly
+		if (0 != ((val ^ _hashmap[bucketidx].first) & _key_mask))
+		{
+			_hashmap[bucketidx].first = val;
+			_hashmap[bucketidx].second = idx;
+			return;
+		}
+		// otherwise loop for remaining options
+		for (int j = 1; j < _hashmap_density; ++j)
+		{
+			if (0 != ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
+			{
+				_hashmap[bucketidx+j].first = val;
+				_hashmap[bucketidx+j].second = idx;
+				return;
+			}
+		}
 	}
 	void cache_insert(uint64_t val, uint64_t idx)
 	{
 		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
-		//__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
+		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_insertcache.emplace_back(val, idx);
 		if (_insertcache.size() >= _hashmap_prefetchcache)
 			cache_insert_flush();
@@ -134,25 +158,7 @@ public:
 	void cache_insert_flush()
 	{
 		for (unsigned i = 0; i < _insertcache.size(); ++i)
-		{
-			uint64_t val = _insertcache[i].first;
-			uint64_t bucketidx = _bucketidx(val);
-			// always try the first position directly
-			if (0 != ((val ^ _hashmap[bucketidx].first) & _key_mask))
-			{
-				_hashmap[bucketidx] = _insertcache[i];
-				continue;
-			}
-			// otherwise loop for remaining options
-			for (int j = 1; j < _hashmap_density; ++j)
-			{
-				if (0 != ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
-				{
-					_hashmap[bucketidx + j] = _insertcache[i];
-					break;
-				}
-			}
-		}
+			insert(_insertcache[i].first, _insertcache[i].second);
 		_insertcache.clear();
 	}
 
@@ -161,31 +167,29 @@ public:
 	{
 		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
-		//__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
+		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_matchcache.emplace_back(val, idx);
 		if (_matchcache.size() >= _hashmap_prefetchcache)
 			cache_match_flush<step>();
+	}
+	void match_list2match(uint64_t val, uint64_t idx)
+	{
+		uint64_t bucketidx = _bucketidx(val);
+		for (int j = 0; j < _hashmap_density; ++j)
+		{
+			if (0 == ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
+				list2match(_hashmap[bucketidx + j], pair_t(val,idx));
+			else
+				break;
+		}
 	}
 	template<int step>
 	void cache_match_flush()
 	{
 		for (unsigned i = 0; i < _matchcache.size(); ++i)
 		{
-			uint64_t val = _matchcache[i].first;
-			uint64_t bucketidx = _bucketidx(val);
-			for (int j = 0; j < _hashmap_density; ++j)
-			{
-				if (0 == ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
-				{
-					checkval(_hashmap[bucketidx + j].first, _hashmap[bucketidx + j].second);
-					checkval(_matchcache[i].first, _matchcache[i].second);
-					//std::cout << "!";
-					if (step == 1)
-						list2match(_hashmap[bucketidx + j], _matchcache[i]);
-				}
-				else
-					break;
-			}
+			if (step == 1)
+				match_list2match(_matchcache[i].first, _matchcache[i].second);
 		}
 		_matchcache.clear();
 	}
@@ -193,14 +197,14 @@ public:
 	void genlist1(int p)
 	{
 		if (p >= 1)
-			enumerate1(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->cache_insert(v, i); });
+			enumerate1(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->insert(v, i); });
 		if (p >= 2)
-			enumerate2(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->cache_insert(v, i); });
+			enumerate2(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->insert(v, i); });
 		if (p >= 3)
-			enumerate3(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->cache_insert(v, i); });
+			enumerate3(0, _firstwords.size() / 2, [this](uint64_t v, uint64_t i) {this->insert(v, i); });
 		if (p >= 4)
 			throw;
-		cache_insert_flush();
+		//cache_insert_flush();
 	}
 	void list2match(const pair_t& elm1, const pair_t& elm2)
 	{
@@ -219,14 +223,14 @@ public:
 	void genlist2(int p)
 	{
 		if (p >= 1)
-			enumerate1(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->cache_match<1>(v, i); });
+			enumerate1(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->match_list2match(v, i); });
 		if (p >= 2)
-			enumerate2(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->cache_match<1>(v, i); });
+			enumerate2(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->match_list2match(v, i); });
 		if (p >= 3)
-			enumerate3(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->cache_match<1>(v, i); });
+			enumerate3(_firstwords.size() / 2, _firstwords.size(), [this](uint64_t v, uint64_t i) {this->match_list2match(v, i); });
 		if (p >= 4)
 			throw;
-		cache_match_flush<1>();
+		//cache_match_flush<1>();
 	}
 
 	template<typename Mat>
@@ -276,17 +280,17 @@ public:
 
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
-		size_t badresults = 0 , goodresults = 0;
+//		size_t badresults = 0 , goodresults = 0;
 		for (size_t i = 0; i < _curresults_size; ++i)
 		{
-			checkval(_curresults[i].first, _curresults[i].second, 6);
+//			checkval(_curresults[i].first, _curresults[i].second, 6);
 			//if (hammingweight(_curresults[i].first) + 1 > maxw)
 //				continue;
 			uint64_t idx = _curresults[i].second;
 
 			unsigned nrrows = 1;
 			tmp.v_copy(G2[idx & idxmask]);
-			uint64_t val = _firstwords[idx & idxmask];
+//			uint64_t val = _firstwords[idx & idxmask];
 
 			idx >>= _index_bits;
 			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
@@ -294,14 +298,14 @@ public:
 				if ((idx & idxmask) < G2.rows())
 				{
 					tmp.v_xor(G2[idx & idxmask]);
-					val ^= _firstwords[idx & idxmask];
+//					val ^= _firstwords[idx & idxmask];
 					++nrrows;
 				}
 			}
-			if (val & _key_mask)
-				++badresults;
-			else
-				++goodresults;
+//			if (val & _key_mask)
+	//			++badresults;
+		//	else
+			//	++goodresults;
 
 			if (tmp.hw() + nrrows < _bestsol_w)
 			{
@@ -316,8 +320,8 @@ public:
 				}
 			}
 		}
-		if (badresults)
-			throw;
+		//if (badresults)
+			//throw;
 		return _bestsol_rows;
 	}
 
@@ -359,35 +363,35 @@ public:
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
 		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
 		uint32_t rowidx[32];
-		size_t badresults = 0;
+		//size_t badresults = 0;
 		for (size_t i = 0; i < _curresults_size; ++i)
 		{
 			uint64_t idx = _curresults[i].second;
 			rowidx[0] = idx & idxmask;
-			uint64_t val = _firstwords[rowidx[0]];
+			//uint64_t val = _firstwords[rowidx[0]];
 			unsigned nrrows = 1;
 			idx >>= _index_bits;
 			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
 			{
 				if ((idx & idxmask) != idxmask)
 				{
-					if ((idx & idxmask) >= G2.rows())
-						throw;
+					//if ((idx & idxmask) >= G2.rows())
+						//throw;
 					rowidx[nrrows] = idx & idxmask;
-					val ^= _firstwords[rowidx[nrrows]];
+					//val ^= _firstwords[rowidx[nrrows]];
 					++nrrows;
 				}
 			}
-			if (val & _key_mask)
-				++badresults;
+			//if (val & _key_mask)
+				//++badresults;
 				//std::cout << std::hex << val << " " << std::flush;
 			babai(rowidx + 0, rowidx + nrrows);
 		}
-		if (badresults > 0)
-		{
-			std::cout << "badresults: " << badresults << std::endl;
-			throw;
-		}
+		//if (badresults > 0)
+		//{
+//			std::cout << "badresults: " << badresults << std::endl;
+			//throw;
+		//}
 	}
 
 private:
@@ -465,7 +469,8 @@ public:
 		std::cout << "l0=" << G[0].hw() << std::endl;
 
 		update_G1(G1_rows_);
-		echelonize_G2I3();
+		//echelonize_G2I3();
+		update1();
 	}
 
 	void update_G1(int G1_rows_ = 0)
