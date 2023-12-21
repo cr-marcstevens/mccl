@@ -3,9 +3,19 @@
 #ifndef MCCL_ALGORITHM_LOWWEIGHT_GENERIC_HPP
 #define MCCL_ALGORITHM_LOWWEIGHT_GENERIC_HPP
 
+#ifdef _MSC_VER
+#include <intrin.h>
+template<typename T>
+void __builtin_prefetch(T* p, int i = 0, int j = 0)
+{
+    _mm_prefetch(reinterpret_cast<const char*>(p), 5);
+}
+
+#endif
+
 #include <mccl/config/config.hpp>
 #include <mccl/algorithm/decoding.hpp>
-#include <mccl/core/matrix_isdform.hpp>
+#include <mccl/core/matrix_lwsform.hpp>
 #include <mccl/tools/statistics.hpp>
 
 MCCL_BEGIN_NAMESPACE
@@ -82,7 +92,6 @@ vec solve_LWS(LWS_t& LWS, const lowweight_search_problem& LWSP)
 }
 
 
-
 struct lowweight_generic_config_t
 {
     const std::string modulename = "lowweight";
@@ -101,14 +110,18 @@ struct lowweight_generic_config_t
         "\t\tRecursively preprocess epipodal basis:\n"
         "\t\t\tUse chosen preprocess strategy\n"
         "\t\t\tAt each level the matrix is of the form:\n"
-        "\t\t\tG' = (G1 G2 I), where\n"
-        "\t\t\t      G1 are the columns of the epipodal basis vectors so far\n"
+        "\t\t\tG' = ( G1 0  0 )\n"
+        "\t\t\t     ( G2 G3 I ), where\n"
+        "\t\t\t      G1 is the epipodal basis so far\n"
         "\t\tUntil G1 cannot be made bigger while keeping G2 with at least c columns\n"
-        "\t\tThen call subISD(G2, 0, l1)\n"
+        "\t\tThen call subISD(G23, 0, l1)\n"
         ;
 
     unsigned int preprocessing = 1; // 0: Systematize, 1: LLL, 2: EpiSort, 3: Stern, 4: Wagner
     unsigned int preprocess_p = 2; // Stern/Wagner: enumerate over p rows for each list
+    unsigned int preprocess_wd = 1; // Wagner iterations (1 means Stern)
+    unsigned int lws_p = 3;
+    unsigned int lws_wd = 1;
     bool verify_solution = true;
 
     template<typename Container>
@@ -116,6 +129,9 @@ struct lowweight_generic_config_t
     {
         c(preprocessing, "preprocessing", 4, "Preprocess strategy: 0, 1, 2, 3, 4");
         c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list");
+        c(preprocess_wd, "preprocess_wd", 1, "Preprocess Stern/Wagner: wd Wagner iterations (1=Stern)");
+        c(lws_p, "p", 2, "LWS Stern/Wagner: enumerate over p rows for each list");
+        c(lws_wd, "wd", 1, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
     }
 };
@@ -175,9 +191,22 @@ public:
         k = _G.rows();
         w = _w;
         Gorg.reset(_G);
+        GLWS.reset(_G, 0);
+        G3.resize(n, k);
+        G3.m_clear();
 
         sol.clear();
-        solution = vec();
+
+        solution.resize(n);
+        solution.v_clear();
+
+        C.resize(n);
+        C.v_clear();
+
+        dummyS.resize(n);
+        dummyS.v_clear();
+
+        min_G2_columns = Wagner.collision_bits(_G.rows(), config.lws_p) * config.lws_wd;
     }
 
     // probabilistic preparation of loop invariant
@@ -185,17 +214,42 @@ public:
     {
         stats.cnt_prepare_loop.inc();
         benchmark = _benchmark;
-//        subISDT->initialize(HST.H12T(), HST.H2T().columns(), HST.S2(), w, make_ISD_callback(*this), this);
+
+        //subISDT->initialize(GLWS.G2(), GLWS.G2().columns(), dummyS, w, make_ISD_callback(*this), this);
     }
 
     // perform one loop iteration, return true if successful and store result in e
     bool loop_next()
     {
         stats.cnt_loop_next.inc();
-        // swap u rows in HST & bring in echelon form
+        GLWS.preprocess(min_G2_columns, config.preprocess_p, config.preprocess_wd);
+        babai.initialize(GLWS.Gfull(), GLWS.G01().rows());
+        Wagner.search_Babai(GLWS.G2(), config.lws_p, config.lws_wd, babai);
+        unsigned soli = 0;
+        for (; soli < GLWS.G01().rows(); ++soli)
+        {
+            auto& bsol = babai.bestsol(soli);
+            if (bsol.size() > 0)
+            {
+                std::cout << "I@" << soli << "  " << std::flush;
+                if (soli == 0)
+                    std::cout << GLWS.G01()[0].hw() << " => " << babai.bestw(0) << std::endl;
+                GLWS.insert_sol(soli, bsol);
+                break;
+            }            
+        }
+        if (soli >= GLWS.G01().rows())
+        {
+            // rerandomize
+            GLWS.update1();
+        }
+        
+        return false;
+
+        return true;
 //        HST.update(u, update_type);
         // find all subISD solutions
-        subISDT->solve();
+        //subISDT->solve();
         return !sol.empty();
     }
 
@@ -315,14 +369,23 @@ public:
 private:
     subISDT_t* subISDT;
 
+    wagner_search Wagner;
+    unsigned min_G2_columns;
+
     // original generator matrix G
     cmat_view Gorg;
     // solution with respect to original G
     std::vector<uint32_t> sol;
     vec solution;
 
+    // maintains G in LWS form
+    G_LWS_form_t<_bit_alignment, _masked> GLWS;
+    Babai<_bit_alignment, _masked> babai;
+    mat_t<this_block_tag> G3;
+
     // temporary vector to compute sum of syndrome and H columns
     vec_t<this_block_tag> C;
+    vec_t<this_block_tag> dummyS;
     
     // block pointers to H12T, S and C
     size_t block_stride, blocks_per_row;

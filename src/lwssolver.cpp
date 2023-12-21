@@ -4,9 +4,7 @@
 #include <mccl/algorithm/decoding.hpp>
 #include <mccl/algorithm/isdgeneric.hpp>
 #include <mccl/algorithm/lowweight_generic.hpp>
-#include <mccl/algorithm/prange.hpp>
-#include <mccl/algorithm/lee_brickell.hpp>
-#include <mccl/algorithm/stern_dumer.hpp>
+#include <mccl/algorithm/wagner.hpp>
 
 #include <mccl/tools/parser.hpp>
 #include <mccl/tools/generator.hpp>
@@ -105,8 +103,8 @@ void benchmark_LWS(lowweight_search_API& LWS, cmat_view& G, size_t w, size_t min
 
 int main(int argc, char *argv[])
 {
-try
-{
+//try
+//{
     /* Configuration variables */
     std::string filepath, algo;
     size_t trials;
@@ -146,7 +144,7 @@ try
       ;
     // these are other configuration options
     auxopts.add_options()
-      ("algo,a", po::value<std::string>(&algo)->default_value("P"), "Specify algorithm: P, LB, SDv0")
+      ("algo,a", po::value<std::string>(&algo)->default_value("W"), "Specify algorithm: W")
       ("trials,t", po::value<size_t>(&trials)->default_value(1), "Number of LWS trials")
       ("quiet,q", po::bool_switch(&quiet), "Quiet: reduce verbosity of trials")
       ("printinput", po::bool_switch(&print_input), "Print input G")
@@ -172,8 +170,8 @@ try
     
     // ========== ADD MODULE DEFAULT CONFIGURATIONS HERE ===============
     modules.emplace_back( make_module_configuration( lowweight_generic_config_default ) );
-    modules.emplace_back( make_module_configuration( lee_brickell_config_default ) );
-    modules.emplace_back( make_module_configuration( stern_dumer_config_default ) );
+    modules.emplace_back( make_module_configuration( wagner_config_default ) );
+
     // =================================================================
     
     //  if there are common options then only the first description is used
@@ -228,7 +226,7 @@ try
 
       if (vm.count("manual"))
       {
-        std::cout << "\n\n === ISD solver manual ===\n";
+        std::cout << "\n\n === LWS solver manual ===\n";
         
         for (auto& ptr: modules)
           ptr->print_manual();
@@ -257,20 +255,10 @@ try
     // NOTE: algorithms default configuration needs to be added above in 'modules'
     // initialize chosen algorithm and set pretty print name of algorithm
     sa::to_upper(algo); // make input algo entirely upper-case
-    if (algo == "P" || algo == "PRANGE")
+    if (algo == "W" || algo == "Wagner")
     {
-      algo = "Prange";
-      INITIALIZE_ALGO( subISDT_prange );
-    }
-    else if (algo == "LB" || algo == "LEEBRICKELL" || algo == "LEE-BRICKELL")
-    {
-      algo = "Lee-Brickell";
-      INITIALIZE_ALGO( subISDT_lee_brickell );
-    }
-    else if (algo == "STERNDUMERV0" || algo == "SDV0")
-    {
-      algo = "Stern-Dumer v0";
-      INITIALIZE_ALGO( subISDT_stern_dumer );
+      algo = "Wagner";
+      INITIALIZE_ALGO( subISDT_wagner );
     }
     else
     {
@@ -353,6 +341,7 @@ try
     }
     
     return 0;
+/*
 }
 catch (std::exception& e)
 {
@@ -363,5 +352,5 @@ catch (...)
 {
     std::cerr << "Caught unknown exception!" << std::endl;
     return 1;
-}
+}*/
 }

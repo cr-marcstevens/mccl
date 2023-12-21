@@ -51,6 +51,9 @@
     <ClCompile Include="..\mccl\algorithm\lowweight_generic.cpp">
       <Filter>algorithm</Filter>
     </ClCompile>
+    <ClCompile Include="..\mccl\algorithm\wagner.cpp">
+      <Filter>algorithm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\mccl\algorithm\decoding.hpp">
@@ -144,6 +147,12 @@
       <Filter>tools</Filter>
     </ClInclude>
     <ClInclude Include="..\mccl\algorithm\lowweight_generic.hpp">
+      <Filter>algorithm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mccl\core\matrix_lwsform.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mccl\algorithm\wagner.hpp">
       <Filter>algorithm</Filter>
     </ClInclude>
   </ItemGroup>

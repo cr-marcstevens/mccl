@@ -10,6 +10,15 @@ MCCL_BEGIN_NAMESPACE
 namespace detail
 {
 
+    template<typename Int = size_t>
+    unsigned log2(Int N)
+    {
+        unsigned bits = 0;
+        for (; N > 0; ++bits, N >>= 1)
+            ;
+        return bits;
+    }
+
   template<typename Int = size_t>
   Int binomial(size_t N, size_t k)
   {

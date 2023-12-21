@@ -177,7 +177,7 @@ inline size_t v_hw(const cv_ptr& v)
 inline size_t v_hw_and(const cv_ptr& v1, const cv_ptr& v2)
 {
 	if (!MCCL_VECTOR_ASSUME_EQUAL_DIMENSIONS && v1.columns != v2.columns)
-		throw std::out_of_range("v_swap: vectors do not have equal dimensions");
+		throw std::out_of_range("v_hw_and: vectors do not have equal dimensions");
 	if (!MCCL_VECTOR_ASSUME_NONEMPTY && v1.columns == 0)
 		return 0;
 	size_t words = (v1.columns + 63)/64;
@@ -194,7 +194,7 @@ inline size_t v_hw_and(const cv_ptr& v1, const cv_ptr& v2)
 inline size_t v_hw_or(const cv_ptr& v1, const cv_ptr& v2)
 {
 	if (!MCCL_VECTOR_ASSUME_EQUAL_DIMENSIONS && v1.columns != v2.columns)
-		throw std::out_of_range("v_swap: vectors do not have equal dimensions");
+		throw std::out_of_range("v_hw_or: vectors do not have equal dimensions");
 	if (!MCCL_VECTOR_ASSUME_NONEMPTY && v1.columns == 0)
 		return 0;
 	size_t words = (v1.columns + 63)/64;
@@ -211,7 +211,7 @@ inline size_t v_hw_or(const cv_ptr& v1, const cv_ptr& v2)
 inline size_t v_hw_xor(const cv_ptr& v1, const cv_ptr& v2)
 {
 	if (!MCCL_VECTOR_ASSUME_EQUAL_DIMENSIONS && v1.columns != v2.columns)
-		throw std::out_of_range("v_swap: vectors do not have equal dimensions");
+		throw std::out_of_range("v_hw_xor: vectors do not have equal dimensions");
 	if (!MCCL_VECTOR_ASSUME_NONEMPTY && v1.columns == 0)
 		return 0;
 	size_t words = (v1.columns + 63)/64;
