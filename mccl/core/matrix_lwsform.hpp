@@ -270,9 +270,7 @@ public:
 						++nrrows;
 					}
 				}
-				std::sort(rowidx + 0, rowidx + nrrows);
-				auto it = std::unique(rowidx + 0, rowidx + nrrows);
-				babai(rowidx + 0, it);
+				babai(rowidx + 0, rowidx + nrrows);
 			}
 		}
 	}
@@ -646,8 +644,11 @@ public:
 		//std::cout << "G2 = \n" << G2() << std::endl;
 	}
 
-	void insert_sol(unsigned gi, const std::vector<uint32_t> sol)
+	void insert_sol(unsigned gi, const std::vector<uint32_t> _sol)
 	{
+		std::vector<uint32_t> sol = _sol;
+		std::sort(sol.begin(), sol.end());
+		sol.erase(std::unique(sol.begin(),sol.end()), sol.end());
 		if (sol.size() == 0)
 			return;
 		unsigned hwi = G[gi].hw();
