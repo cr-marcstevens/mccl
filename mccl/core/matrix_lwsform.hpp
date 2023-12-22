@@ -14,6 +14,24 @@
 
 MCCL_BEGIN_NAMESPACE
 
+template<typename Int>
+std::vector<Int> remove_solution_doublerows(const std::vector<Int>& sol)
+{
+	std::vector<Int> ret(sol);
+	std::sort(ret.begin(), ret.end());
+	unsigned i = 0;
+	while (i < ret.size())
+	{
+		if (i + 1 < ret.size() && ret[i + 1] == ret[i])
+		{
+			ret.erase(ret.begin() + i, ret.begin() + i + 2);
+		}
+		else
+			++i;
+	}
+	return ret;
+}
+
 class wagner_search
 {
 public:
@@ -148,7 +166,7 @@ public:
 	}
 	void cache_insert(uint64_t val, uint64_t idx)
 	{
-		checkval(val, idx);
+//		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
 		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_insertcache.emplace_back(val, idx);
@@ -165,7 +183,7 @@ public:
 	template<int step>
 	void cache_match(uint64_t val, uint64_t idx)
 	{
-		checkval(val, idx);
+//		checkval(val, idx);
 		uint64_t bucketidx = _bucketidx(val);
 		__builtin_prefetch(&_hashmap[bucketidx].first, 1, 0);
 		_matchcache.emplace_back(val, idx);
@@ -513,10 +531,12 @@ public:
 
 	void update_G1(int G1_rows_ = 0)
 	{
+		Gi_len.clear();
 		// bring G1 into proper form by applying permutation
 		int G1b = G_columns - 1; // points to next column to extend G1 with
 		for (unsigned i = 0; i < G1_rows_; ++i)
 		{
+			Gi_len.emplace_back(G1b + 1);
 			int bs = 0; // points to next bit position to search for 1 on row i
 			while (true)
 			{
@@ -600,7 +620,8 @@ public:
 	}
 	bool preprocess_extend_epipodal(int p, int wd, unsigned min_G2_columns = 0)
 	{
-		auto sol = Wagner.search_G2(G2(), p, wd);
+		auto sol_ = Wagner.search_G2(G2(), p, wd);
+		auto sol = remove_solution_doublerows(sol_);
 		// take last row in sol as dest
 		unsigned dest = sol.front();
 		tmpv.v_copy(G[G1_rows + sol.front()]);
@@ -632,30 +653,52 @@ public:
 	}
 	void preprocess(unsigned min_G2_columns, int p, int wd)
 	{
+		std::vector<size_t> old_G2_columns;
+		old_G2_columns.push_back(G2_columns);
 		while (G2_columns > min_G2_columns)
 		{
 			//std::cout << "Preprocess p=" << p << " wd=" << wd << " G1_rows=" << G1_rows << "..." << std::endl;
 			if (!preprocess_extend_epipodal(p, wd, min_G2_columns))
 				break;
+			old_G2_columns.push_back(G2_columns);
 		}
 		if (G2_columns < min_G2_columns)
+		{
+			for (auto& n : old_G2_columns)
+				std::cout << " !" << n << std::flush;
 			throw;
+		}
+//			preprocess_shrink_epipodal();
 		//std::cout << "G1 = \n" << G01() << std::endl;
 		//std::cout << "G2 = \n" << G2() << std::endl;
 	}
 
 	void insert_sol(unsigned gi, const std::vector<uint32_t> _sol)
 	{
-		std::vector<uint32_t> sol = _sol;
-		std::sort(sol.begin(), sol.end());
-		sol.erase(std::unique(sol.begin(),sol.end()), sol.end());
+		auto sol = remove_solution_doublerows(_sol);
 		if (sol.size() == 0)
 			return;
-		unsigned hwi = G[gi].hw();
-		auto dest = G[sol.front()];
+		
+		tmpv.v_copy(G[sol.front()]);
 		for (unsigned j = 1; j < sol.size(); ++j)
-			dest.v_xor(G[sol[j]]);
-		G[gi].v_swap(dest);
+			tmpv.v_xor(G[sol[j]]);
+
+		if (tmpv.subvector(Gi_len[gi]).hw() > G[gi].subvector(Gi_len[gi]).hw())
+		{
+			std::cout << "insert_sol " << gi << ": err: " << tmpv.subvector(Gi_len[gi]).hw() << " > " << G[gi].subvector(Gi_len[gi]).hw() << std::endl;
+			std::cout << "insert_sol " << gi << ": sol: [";
+			for (auto& j : sol)
+				std::cout << " " << j;
+			std::cout << " ]" << std::endl;
+			std::cout << "insert_sol " << gi << ": _sol: [";
+			for (auto& j : _sol)
+				std::cout << " " << j;
+			std::cout << " ]" << std::endl;
+			throw;
+		}
+		
+		G[sol.back()].v_copy(G[gi]);
+		G[gi].v_copy(tmpv);
 		if (gi == 0)
 		{
 			std::cout << "insert_sol: hw0=" << G[gi].hw() << std::endl;
@@ -672,17 +715,9 @@ public:
 					std::swap(perm[j], perm[perm[j]]);
 				}
 			}
+			// write the new matrix to file
 			std::ofstream ofs("G_" + std::to_string(G[gi].hw()));
 			ofs << "# g" << std::endl << G << std::endl;
-		}
-		if (gi == 0 && hwi < G[gi].hw())
-		{
-			std::cout << "insert_sol: err: " << hwi << " < " << G[gi].hw() << std::endl;
-			std::cout << "insert_sol: sol: [";
-			for (auto& j : sol)
-				std::cout << " " << j;
-			std::cout << " ]" << std::endl;
-			throw;
 		}
 		update_G1(gi + 1);
 		echelonize_G2I3();
@@ -962,6 +997,8 @@ private:
 	size_t G_columns, G_rows, G1_rows, G23_rows, G1_columns, G2_columns, G2I_columns;
 	std::vector<uint32_t> echelon_perm;
 
+	std::vector<size_t> Gi_len;
+
 	wagner_search Wagner;
 
 	mccl_base_random_generator rndgen;
@@ -1009,6 +1046,7 @@ public:
 			_babaisteps[i].gwindow.reset(G.subvector(i, bbeg, bend - bbeg));
 			_babaisteps[i].wbeg = bbeg;
 			_babaisteps[i].wlen = bend - bbeg;
+			_babaisteps[i].wend = bend;
 
 			_babaisteps[i].bestw = _babaisteps[i].ghw;
 			_babaisteps[i].bestsol.clear();
@@ -1029,7 +1067,11 @@ public:
 		tmp.v_copy(_G2I3[*rit]); ++rit;
 		for (; rit != rend; ++rit)
 			tmp.v_xor(_G2I3[*rit]);
-		//std::cout << "Babai: tmp=" << tmp << std::endl;
+//		if (tmp.subvector(44).hw())
+//		{
+//			std::cout << "Babai: tmp=" << tmp.subvector(44) << std::endl;
+//			throw;
+//		}
 		//throw std::runtime_error("");
 		// now babai lift it for each g*_l, ..., g*_1
 		unsigned w = tmp.subvector(_G2I_columns).hw();
@@ -1045,13 +1087,20 @@ public:
 				G1solpart |= uint64_t(1) << i;
 			}
 			w += gihw;
+/*			if (tmp.subvector(BS.wend).hw() != w)
+			{
+				std::cout << w << " != " << tmp.subvector(BS.wend).hw() << std::endl;
+				std::cout << tmp << std::endl;
+				throw;
+			}*/
 			if (w < BS.bestw)
 			{
 				BS.bestw = w;
+				BS.bestsol.clear();
 				BS.bestsol.assign(rbeg, rend);
 				for (unsigned j = 0; j < BS.bestsol.size(); ++j)
 					BS.bestsol[j] += _babaisteps.size();
-				for (unsigned j = i; j < _babaisteps.size(); ++j)
+				for (unsigned j = 0; j < _babaisteps.size(); ++j)
 					if ((G1solpart >> j) & 1)
 						BS.bestsol.push_back(j);
 			}
@@ -1066,7 +1115,7 @@ private:
 	{
 		cvec_view_t<this_block_tag> g;
 		cvec_view gwindow;
-		unsigned wbeg, wlen;
+		unsigned wbeg, wlen, wend;
 		unsigned ghw, gbound;
 
 		std::vector<uint32_t> bestsol;
