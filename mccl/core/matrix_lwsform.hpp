@@ -294,6 +294,60 @@ public:
 	}
 
 	template<typename Mat>
+	void genlist3_G2(const Mat& G2)
+	{
+		uint32_t rowidx[32];
+		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+		for (size_t i = 0; i < _curresults_size; ++i)
+		{
+			if (_curresults[i].first & _key_mask) 
+				throw;
+			uint64_t val = _curresults[i].first >>= _collision_bits, idx = _curresults[i].second;
+			uint64_t bucketidx = _bucketidx(val);
+			for (unsigned j = 0; j < _hashmap_density; ++j)
+			{
+				if (0 != ((val ^ _hashmap[bucketidx + j].first) & _key_mask))
+				{
+					_hashmap[bucketidx + j].first = val;
+					_hashmap[bucketidx + j].second = idx;
+					break;
+				}
+				unsigned nrrows = 1;
+				uint64_t dec = idx;
+				tmp.v_copy(G2[dec & idxmask]);
+				rowidx[0] = dec & idxmask;
+				dec >>= _index_bits;
+				for (unsigned j = 0; j < 6; ++j, dec >>= _index_bits)
+				{
+					if ((dec & idxmask) < _firstwords.size())
+					{
+						tmp.v_xor(G2[dec & idxmask]);
+						rowidx[nrrows] = dec & idxmask;
+						++nrrows;
+					}
+				}
+				dec = _hashmap[bucketidx + j].second;
+				for (unsigned j = 0; j < 6; ++j, dec >>= _index_bits)
+				{
+					if ((dec & idxmask) < _firstwords.size())
+					{
+						tmp.v_xor(G2[dec & idxmask]);
+						rowidx[nrrows] = dec & idxmask;
+						++nrrows;
+					}
+				}
+				if (tmp.hw() + nrrows < _bestsol_w)
+				{
+					//std::cout << "Wagner.search_G2: improved: i=" << i << ": " << _bestsol_w << " => " << tmp.hw() + nrrows << ": 0x" << _curresults[i].second << std::endl;
+					_bestsol_w = tmp.hw() + nrrows;
+					_bestsol_rows.clear();
+					_bestsol_rows.assign(rowidx + 0, rowidx + nrrows);
+				}
+			}
+		}
+	}
+
+	template<typename Mat>
 	const std::vector<uint32_t>& search_G2(const Mat& G2, int p, int wd, int maxw = 65536)
 	{
 		if (p <= 0 || p > 4 || wd <= 0)
@@ -339,47 +393,52 @@ public:
 		genlist2(p);
 
 		//std::cout << "Wagner: results: " << _curresults_size << std::endl;
-		uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
-		//		size_t badresults = 0 , goodresults = 0;
-		for (size_t i = 0; i < _curresults_size; ++i)
+		if (wd == 1)
 		{
-			//			checkval(_curresults[i].first, _curresults[i].second, 6);
-						//if (hammingweight(_curresults[i].first) + 1 > maxw)
-			//				continue;
-			uint64_t idx = _curresults[i].second;
-
-			unsigned nrrows = 1;
-			tmp.v_copy(G2[idx & idxmask]);
-			//			uint64_t val = _firstwords[idx & idxmask];
-
-			idx >>= _index_bits;
-			for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
+			uint64_t idxmask = (uint64_t(1) << _index_bits) - 1;
+			for (size_t i = 0; i < _curresults_size; ++i)
 			{
-				if ((idx & idxmask) < G2.rows())
-				{
-					tmp.v_xor(G2[idx & idxmask]);
-					//					val ^= _firstwords[idx & idxmask];
-					++nrrows;
-				}
-			}
-			//			if (val & _key_mask)
-				//			++badresults;
-					//	else
-						//	++goodresults;
+				//			checkval(_curresults[i].first, _curresults[i].second, 6);
+				uint64_t idx = _curresults[i].second;
 
-			if (tmp.hw() + nrrows < _bestsol_w)
-			{
-				//std::cout << "Wagner.search_G2: improved: i=" << i << ": " << _bestsol_w << " => " << tmp.hw() + nrrows << ": 0x" << _curresults[i].second << std::endl;
-				_bestsol_w = tmp.hw() + nrrows;
-				_bestsol_rows.clear();
-				idx = _curresults[i].second;
-				for (unsigned j = 0; j < 6; ++j, idx >>= _index_bits)
+				unsigned nrrows = 1;
+				tmp.v_copy(G2[idx & idxmask]);
+				//			uint64_t val = _firstwords[idx & idxmask];
+
+				idx >>= _index_bits;
+				for (unsigned j = 1; j < 6; ++j, idx >>= _index_bits)
 				{
 					if ((idx & idxmask) < G2.rows())
-						_bestsol_rows.emplace_back(idx & idxmask);
+					{
+						tmp.v_xor(G2[idx & idxmask]);
+						//					val ^= _firstwords[idx & idxmask];
+						++nrrows;
+					}
+				}
+				//			if (val & _key_mask)
+				//				++badresults;
+				//			else
+				//				++goodresults;
+
+				if (tmp.hw() + nrrows < _bestsol_w)
+				{
+					//std::cout << "Wagner.search_G2: improved: i=" << i << ": " << _bestsol_w << " => " << tmp.hw() + nrrows << ": 0x" << _curresults[i].second << std::endl;
+					_bestsol_w = tmp.hw() + nrrows;
+					_bestsol_rows.clear();
+					idx = _curresults[i].second;
+					for (unsigned j = 0; j < 6; ++j, idx >>= _index_bits)
+					{
+						if ((idx & idxmask) < G2.rows())
+							_bestsol_rows.emplace_back(idx & idxmask);
+					}
 				}
 			}
 		}
+		else if (wd == 2)
+		{
+			genlist3_G2(G2);
+		}
+		else throw;
 		//if (badresults)
 			//throw;
 		return _bestsol_rows;
@@ -440,13 +499,13 @@ public:
 				}
 				babai(rowidx + 0, rowidx + nrrows);
 			}
-			return;
 		}
-		if (wd == 2)
+		else if (wd == 2)
 		{
 			_hashmap_clear();
 			genlist3(babai);
 		}
+		else throw;
 
 	}
 

@@ -119,7 +119,7 @@ struct lowweight_generic_config_t
 
     unsigned int preprocessing = 1; // 0: Systematize, 1: LLL, 2: EpiSort, 3: Stern, 4: Wagner
     unsigned int preprocess_p = 2; // Stern/Wagner: enumerate over p rows for each list
-    unsigned int preprocess_wd = 1; // Wagner iterations (1 means Stern)
+    unsigned int preprocess_wd = 2; // Wagner iterations (1 means Stern)
     unsigned int lws_p = 3;
     unsigned int lws_wd = 2;
     bool verify_solution = true;
@@ -130,7 +130,7 @@ struct lowweight_generic_config_t
     {
         c(preprocessing, "preprocessing", 4, "Preprocess strategy: 0, 1, 2, 3, 4");
         c(preprocess_p, "preprocess_p", 2, "Preprocess Stern/Wagner: enumerate over p rows for each list");
-        c(preprocess_wd, "preprocess_wd", 1, "Preprocess Stern/Wagner: wd Wagner iterations (1=Stern)");
+        c(preprocess_wd, "preprocess_wd", 2, "Preprocess Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(lws_p, "lws_p", 3, "LWS Stern/Wagner: enumerate over p rows for each list");
         c(lws_wd, "lws_wd", 2, "LWS Stern/Wagner: wd Wagner iterations (1=Stern)");
         c(verify_solution, "verifysolution", true, "Set verification of solutions");
